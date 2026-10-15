@@ -17,17 +17,20 @@ namespace backend.Controllers;
  *   will be accessed at: http://localhost:5000/api/auth/...
  * - ControllerBase: Provides helper methods like Ok(data), BadRequest(error),
  *   Unauthorized(error), NotFound(error).
+ * - IEmailService: Injected to send automatic email alerts whenever a user logs in!
  */
 [ApiController]
 [Route("api/auth")]
 public class AuthController : ControllerBase
 {
     private readonly AuthService _authService;
+    private readonly IEmailService _emailService;
 
-    // AuthService is injected automatically by ASP.NET Core Dependency Injection
-    public AuthController(AuthService authService)
+    // Both AuthService and IEmailService are injected automatically by ASP.NET Core
+    public AuthController(AuthService authService, IEmailService emailService)
     {
         _authService = authService;
+        _emailService = emailService;
     }
 
     /// <summary>
@@ -54,7 +57,7 @@ public class AuthController : ControllerBase
     /// <summary>
     /// POST /api/auth/login
     /// Accepts { email, password }
-    /// Verifies credentials and returns a JWT token.
+    /// Verifies credentials, returns a JWT token, and sends a login notification email.
     /// </summary>
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
@@ -68,8 +71,12 @@ public class AuthController : ControllerBase
             return Unauthorized(new { message = "Invalid email or password." });
         }
 
-        // 3. Return 200 OK with the JWT token
+        // 3. Send email notification to user alerting them of the login!
+        await _emailService.SendLoginNotificationAsync(result.Email, result.Name, DateTime.Now);
+
+        // 4. Return 200 OK with the JWT token
         return Ok(result);
     }
 }
+
 

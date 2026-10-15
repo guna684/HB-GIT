@@ -84,9 +84,12 @@ else
 // 4. APPLICATION BUSINESS SERVICES
 // AuthService: Manages user registration, BCrypt password hashing, and login.
 // BirthdayService: Calculates leap years, upcoming countdowns, and handles photo saving.
+// EmailService: Sends security login alerts and birthday reminder notifications.
 // =============================================================================
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<BirthdayService>();
+builder.Services.AddScoped<IEmailService, EmailService>();
+
 
 // =============================================================================
 // 5. BACKGROUND WORKER SERVICE
