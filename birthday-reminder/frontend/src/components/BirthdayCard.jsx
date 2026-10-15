@@ -103,8 +103,6 @@ const BirthdayCard = ({ birthday, onDelete }) => {
             setPhotoBlobUrl(null);
           }
         });
-    } else {
-      setPhotoBlobUrl(null);
     }
 
     // Clean up created blob URL when card unmounts or photo changes
