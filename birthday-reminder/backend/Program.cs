@@ -1,9 +1,14 @@
 using System.Text;
+using backend.Data;
 using backend.Repositories;
 using backend.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+
+// Enable legacy timestamp behavior in Npgsql so DateTime instances without explicit UTC kind work smoothly
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -31,18 +36,28 @@ builder.Services.AddCors(options =>
 });
 
 // =========================================================================
-// 3. Dependency Injection (DI) & Repositories
+// 3. Dependency Injection (DI) & Repositories (PostgreSQL vs In-Memory)
 // =========================================================================
-// For now, we use In-Memory repositories registered as Singletons so our data
-// persists across requests while the backend server is running.
-//
-// LATER: When you want to switch to PostgreSQL with Entity Framework Core,
-// you can replace these two lines with your DbContext and Scoped repositories:
-//   builder.Services.AddDbContext<AppDbContext>(options => options.UseNpgsql(connString));
-//   builder.Services.AddScoped<IUserRepository, PostgresUserRepository>();
-//   builder.Services.AddScoped<IBirthdayRepository, PostgresBirthdayRepository>();
-builder.Services.AddSingleton<IUserRepository, InMemoryUserRepository>();
-builder.Services.AddSingleton<IBirthdayRepository, InMemoryBirthdayRepository>();
+string? connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+bool usePostgres = !string.IsNullOrWhiteSpace(connectionString) &&
+                   !connectionString.Contains("YOUR_PASSWORD", StringComparison.OrdinalIgnoreCase);
+
+if (usePostgres)
+{
+    // Connect to PostgreSQL database using Entity Framework Core
+    builder.Services.AddDbContext<AppDbContext>(options =>
+        options.UseNpgsql(connectionString));
+
+    builder.Services.AddScoped<IUserRepository, PostgresUserRepository>();
+    builder.Services.AddScoped<IBirthdayRepository, PostgresBirthdayRepository>();
+}
+else
+{
+    // Fallback: In-memory repositories (data remains as long as backend is running)
+    // To switch to PostgreSQL, simply set "DefaultConnection" in appsettings.json!
+    builder.Services.AddSingleton<IUserRepository, InMemoryUserRepository>();
+    builder.Services.AddSingleton<IBirthdayRepository, InMemoryBirthdayRepository>();
+}
 
 // =========================================================================
 // 4. Application Services
@@ -135,6 +150,22 @@ if (!Directory.Exists(webRoot))
 builder.Environment.WebRootPath = webRoot;
 
 var app = builder.Build();
+
+// Automatically create database tables when connected to PostgreSQL
+if (usePostgres)
+{
+    using var scope = app.Services.CreateScope();
+    var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    try
+    {
+        await dbContext.Database.EnsureCreatedAsync();
+        app.Logger.LogInformation("Successfully connected to PostgreSQL and ensured database tables exist.");
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogError(ex, "Failed to connect to PostgreSQL database. Please verify your connection string.");
+    }
+}
 
 // Ensure wwwroot/uploads directory exists for static file serving
 string uploadsPath = Path.Combine(app.Environment.ContentRootPath, "wwwroot", "uploads");

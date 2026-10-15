@@ -1,0 +1,32 @@
+# ==========================================
+# .NET Build outputs (DO NOT COMMIT TO GIT)
+# ==========================================
+**/[Bb]in/
+**/[Oo]bj/
+**/temp_build/
+*.user
+*.suo
+.vs/
+.vscode/
+
+# ==========================================
+# Node / Frontend Build & Dependencies
+# ==========================================
+**/node_modules/
+**/dist/
+**/dist-ssr/
+*.local
+
+# ==========================================
+# User Uploads (Photos)
+# ==========================================
+birthday-reminder/backend/wwwroot/uploads/*
+!birthday-reminder/backend/wwwroot/uploads/.gitkeep
+
+# ==========================================
+# OS Generated Files
+# ==========================================
+Thumbs.db
+ehthumbs.db
+[Dd]esktop.ini
+.DS_Store

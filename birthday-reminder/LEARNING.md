@@ -244,18 +244,39 @@ To understand this codebase step-by-step, read these 10 files in this exact orde
 
 ---
 
-## 10. Next Steps for Growth
+---
 
-Once you are comfortable with this codebase, here are four great milestones to pursue:
+## 10. PostgreSQL Database Setup & Connection String
 
-1. **Database Integration with PostgreSQL & EF Core**:
-   - Install PostgreSQL locally or via Docker.
-   - Replace in-memory lists with Entity Framework Core `DbContext` and migrations.
-2. **Email Reminders via SendGrid or MailKit**:
+We have fully integrated PostgreSQL using **Entity Framework Core** and **Npgsql**!
+
+### How It Works:
+- **`AppDbContext.cs`**: Maps `User` and `Birthday` models to PostgreSQL tables, adds foreign keys, unique email constraints, and clean timestamp mapping.
+- **`PostgresUserRepository.cs` & `PostgresBirthdayRepository.cs`**: Implement `IUserRepository` and `IBirthdayRepository` via EF Core.
+- **Smart Fallback**: If `DefaultConnection` in `appsettings.json` is left empty, the app automatically runs in In-Memory mode without crashing.
+- **Auto Table Creation**: When a valid PostgreSQL connection string is supplied, the app automatically executes `EnsureCreatedAsync()` on startup to create the `Users` and `Birthdays` tables with indexes and foreign keys!
+
+### How to Connect Your PostgreSQL Database:
+1. Open [`backend/appsettings.json`](file:///e:/d/HB/birthday-reminder/backend/appsettings.json).
+2. Set your PostgreSQL connection string in `ConnectionStrings:DefaultConnection`:
+   ```json
+   "ConnectionStrings": {
+     "DefaultConnection": "Host=localhost;Port=5432;Database=birthday_db;Username=postgres;Password=your_password"
+   }
+   ```
+   *(Works with local PostgreSQL, Neon.tech, Supabase, Railway, ElephantSQL, etc.)*
+3. Restart the backend (`dotnet run`). The tables will be created automatically!
+
+---
+
+## 11. Next Steps for Growth
+
+1. **Email Reminders via SendGrid or MailKit**:
    - Create an `IEmailService`.
    - Send email notifications inside `ReminderBackgroundService` when a birthday is coming up.
-3. **Deployment**:
-   - Deploy backend to Render, Railway, or Azure App Service.
+2. **Deployment**:
+   - Deploy backend to Render, Railway, or Azure App Service with PostgreSQL.
    - Deploy frontend to Vercel or Netlify.
-4. **Mobile App or Progressive Web App (PWA)**:
-   - Convert the React app into an installable PWA or build an Android app with React Native / Kotlin that calls the existing `/api` endpoints!
+3. **Mobile App or Progressive Web App (PWA)**:
+   - Convert the React app into an installable PWA or build an Android app with React Native / Kotlin!
+
