@@ -8,9 +8,19 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace backend.Services;
 
-/// <summary>
-/// Handles user registration, password verification, and JWT token generation.
-/// </summary>
+/**
+ * =============================================================================
+ * SERVICE: AuthService
+ * =============================================================================
+ * Handles user authentication logic:
+ * 1. User Registration: Validates uniqueness, hashes password, generates JWT.
+ * 2. User Login: Verifies BCrypt password hash, generates JWT.
+ * 3. JWT Token Generation: Creates signed tokens with user claims.
+ * 
+ * Why do we use BCrypt?
+ * We NEVER store plain text passwords in the database! If an attacker breaches the
+ * database, they cannot reverse a BCrypt hash to read real passwords.
+ */
 public class AuthService
 {
     private readonly IUserRepository _userRepository;
@@ -23,34 +33,34 @@ public class AuthService
     }
 
     /// <summary>
-    /// Registers a new user. Hashes their password using BCrypt and returns an auth response with a JWT.
+    /// Registers a new user.
     /// Returns null if an account with that email already exists.
     /// </summary>
     public async Task<AuthResponse?> RegisterAsync(RegisterRequest request)
     {
-        // Check if a user with this email already exists
-        User? existingUser = await _userRepository.GetByEmailAsync(request.Email);
+        // Step 1: Check if this email is already registered
+        string normalizedEmail = request.Email.Trim().ToLowerInvariant();
+        User? existingUser = await _userRepository.GetByEmailAsync(normalizedEmail);
         if (existingUser != null)
         {
-            // Email is already taken
-            return null;
+            return null; // Email taken
         }
 
-        // Hash the plain text password using BCrypt
+        // Step 2: Securely hash the password using BCrypt
         string passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
 
-        // Build the new user entity
+        // Step 3: Build the new User database model
         User newUser = new()
         {
             Name = request.Name.Trim(),
-            Email = request.Email.Trim().ToLowerInvariant(),
+            Email = normalizedEmail,
             PasswordHash = passwordHash
         };
 
-        // Save the user to the repository
+        // Step 4: Save the user to database / repository
         User createdUser = await _userRepository.CreateAsync(newUser);
 
-        // Generate a JWT token for the new user so they are immediately logged in
+        // Step 5: Generate a signed JWT token so they are logged in right away
         string token = GenerateJwtToken(createdUser);
 
         return new AuthResponse
@@ -63,28 +73,27 @@ public class AuthService
     }
 
     /// <summary>
-    /// Validates user credentials and returns an auth response with a JWT token.
-    /// Returns null if the email is not found or the password does not match.
+    /// Validates user login credentials.
+    /// Returns null if the email is not found or password doesn't match.
     /// </summary>
     public async Task<AuthResponse?> LoginAsync(LoginRequest request)
     {
-        // Find the user by email
-        User? user = await _userRepository.GetByEmailAsync(request.Email.Trim().ToLowerInvariant());
+        // Step 1: Look up user by email
+        string normalizedEmail = request.Email.Trim().ToLowerInvariant();
+        User? user = await _userRepository.GetByEmailAsync(normalizedEmail);
         if (user == null)
         {
-            // User not found
-            return null;
+            return null; // Email not registered
         }
 
-        // Verify the plain text password against the stored BCrypt hash
+        // Step 2: Compare plain text password against the stored BCrypt hash
         bool isPasswordValid = BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash);
         if (!isPasswordValid)
         {
-            // Password does not match
-            return null;
+            return null; // Wrong password
         }
 
-        // Generate a new JWT token
+        // Step 3: Password matched! Generate a new JWT token
         string token = GenerateJwtToken(user);
 
         return new AuthResponse
@@ -97,12 +106,11 @@ public class AuthService
     }
 
     /// <summary>
-    /// Helper method to create and sign a JSON Web Token (JWT) containing user claims.
-    /// Reads secret key, issuer, audience, and expiry settings from appsettings.json.
+    /// Generates a cryptographically signed JSON Web Token (JWT).
     /// </summary>
     private string GenerateJwtToken(User user)
     {
-        // Read configuration values
+        // 1. Read secret settings from appsettings.json
         string secretKey = _configuration["Jwt:Key"] ?? "DefaultFallbackSecretKey12345678901234567890";
         string issuer = _configuration["Jwt:Issuer"] ?? "BirthdayReminderApi";
         string audience = _configuration["Jwt:Audience"] ?? "BirthdayReminderApp";
@@ -112,19 +120,19 @@ public class AuthService
             expiryDays = parsedDays;
         }
 
-        // Claims are pieces of data embedded inside the token (User ID, Name, Email)
+        // 2. Claims: Data embedded inside the token that travels to the frontend
         Claim[] claims = new[]
         {
-            new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+            new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()), // Logged-in user's ID
             new Claim(ClaimTypes.Name, user.Name),
             new Claim(ClaimTypes.Email, user.Email)
         };
 
-        // Create the symmetric security key using UTF8 bytes
+        // 3. Cryptographic signature with HMAC-SHA256
         SymmetricSecurityKey key = new(Encoding.UTF8.GetBytes(secretKey));
         SigningCredentials credentials = new(key, SecurityAlgorithms.HmacSha256);
 
-        // Define token options
+        // 4. Build the token descriptor
         JwtSecurityToken tokenDescriptor = new(
             issuer: issuer,
             audience: audience,
@@ -133,7 +141,8 @@ public class AuthService
             signingCredentials: credentials
         );
 
-        // Convert the token object to a serialized string
+        // 5. Serialize into string (e.g. "eyJhbGciOiJIUzI1NiIsIn...")
         return new JwtSecurityTokenHandler().WriteToken(tokenDescriptor);
     }
 }
+

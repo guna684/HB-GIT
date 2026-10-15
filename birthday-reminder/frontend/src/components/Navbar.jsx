@@ -3,13 +3,24 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 /**
- * Top navigation bar containing the application title, theme toggle,
- * and user logout action.
+ * =============================================================================
+ * COMPONENT: Navbar
+ * =============================================================================
+ * The top navigation header shown on every page of the app.
+ * 
+ * Features:
+ * 1. Brand logo and title (links back to Dashboard).
+ * 2. Light / Dark theme toggle button (persists in localStorage).
+ * 3. Conditional links:
+ *    - If user is logged in: shows "Dashboard" link and "Log Out" button.
+ *    - If user is NOT logged in: shows "Log In" link and "Sign Up" button.
  */
 const Navbar = () => {
-  const { isAuthenticated, user, logout, theme, toggleTheme } = useAuth();
+  // Grab state & functions from our global AuthContext
+  const { isAuthenticated, logout, theme, toggleTheme } = useAuth();
   const navigate = useNavigate();
 
+  // Handle logging out and redirecting to the login page
   const handleLogout = () => {
     logout();
     navigate('/login');
@@ -18,11 +29,13 @@ const Navbar = () => {
   return (
     <nav className="navbar">
       <div className="navbar-inner">
+        {/* Brand Link */}
         <Link to="/" className="nav-brand">
           <span className="nav-brand-icon">🎂</span>
           <span className="nav-brand-text">Birthday Reminder</span>
         </Link>
 
+        {/* Right Actions: Theme Toggle & Navigation Links */}
         <div className="nav-actions">
           {/* Light / Dark Mode Toggle Button */}
           <button
@@ -35,6 +48,7 @@ const Navbar = () => {
             {theme === 'dark' ? '☀️' : '🌙'}
           </button>
 
+          {/* Conditional auth links */}
           {isAuthenticated ? (
             <>
               <Link to="/" className="nav-link">
@@ -66,3 +80,4 @@ const Navbar = () => {
 };
 
 export default Navbar;
+

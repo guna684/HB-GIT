@@ -1,10 +1,21 @@
 namespace backend.DTOs;
 
-/// <summary>
-/// Data returned to the client when viewing a birthday.
-/// Includes calculated fields like daysUntilBirthday and turningAge,
-/// and a full URL for the photo so the frontend can display it directly.
-/// </summary>
+/**
+ * =============================================================================
+ * DTO: BirthdayResponse
+ * =============================================================================
+ * Why not return the database entity 'Birthday' directly?
+ * 
+ * 1. Computed Fields:
+ *    Age and countdown change every day! The database doesn't store them.
+ *    Instead, the backend computes DaysUntilBirthday and TurningAge fresh on
+ *    every request and includes them here.
+ * 
+ * 2. Photo URL:
+ *    The database only stores the filename (e.g. "guid.jpg").
+ *    This DTO converts it into a complete web URL:
+ *    "http://localhost:5000/uploads/guid.jpg" so React can display it directly!
+ */
 public class BirthdayResponse
 {
     // Unique identifier for the birthday
@@ -13,25 +24,26 @@ public class BirthdayResponse
     // Name of the person
     public string PersonName { get; set; } = string.Empty;
 
-    // The birth date
+    // The birth date (day, month, year)
     public DateTime DateOfBirth { get; set; }
 
-    // Relationship category (Family, Friend, Work, Other)
+    // Relationship category: "Family", "Friend", "Work", or "Other"
     public string Relationship { get; set; } = string.Empty;
 
-    // Optional notes
+    // Optional gift ideas, memories, or notes
     public string? Notes { get; set; }
 
-    // Complete URL to access the photo (e.g., http://localhost:5000/uploads/xyz.jpg)
-    // Will be null if no photo was uploaded
+    // Complete URL to access the photo (e.g. http://localhost:5000/uploads/xyz.jpg)
+    // Null if no photo was uploaded
     public string? PhotoUrl { get; set; }
 
-    // Number of days until their next birthday (0 means today!)
+    // Number of days until their next birthday (0 = TODAY!)
     public int DaysUntilBirthday { get; set; }
 
     // The age they will turn on their upcoming birthday
     public int TurningAge { get; set; }
 
-    // How many days before their birthday the user requested a reminder
+    // How many days in advance the user wants reminder alerts
     public int RemindDaysBefore { get; set; }
 }
+

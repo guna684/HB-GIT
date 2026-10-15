@@ -4,19 +4,34 @@ import { loginUser } from '../api/authApi';
 import { useAuth } from '../context/AuthContext';
 
 /**
- * Login page where existing users enter their email and password.
+ * =============================================================================
+ * PAGE: LoginPage
+ * =============================================================================
+ * Allows registered users to log into their account.
+ * 
+ * How it works:
+ * 1. Collects email and password via controlled <input> elements.
+ * 2. Calls loginUser({ email, password }) which hits POST /api/auth/login.
+ * 3. The backend checks BCrypt password hash and returns a JWT token.
+ * 4. Calls login(data) from our AuthContext to save token to localStorage.
+ * 5. Uses navigate('/') to redirect the user to the Dashboard!
  */
 const LoginPage = () => {
+  // Form input states
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Auth context login helper and React Router navigation
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  // ---------------------------------------------------------------------------
+  // Handle form submission
+  // ---------------------------------------------------------------------------
+  const handleSubmit = async (event) => {
+    event.preventDefault();
     setError('');
 
     if (!email || !password) {
@@ -27,29 +42,41 @@ const LoginPage = () => {
     setLoading(true);
 
     try {
+      // Send credentials to backend
       const data = await loginUser({ email, password });
+
+      // Save token & user to context + localStorage
       login(data);
+
+      // Redirect to dashboard
       navigate('/');
     } catch (err) {
-      const msg = err.response?.data?.message || 'Invalid email or password. Please try again.';
-      setError(msg);
+      const message = err.response?.data?.message || 'Invalid email or password. Please try again.';
+      setError(message);
     } finally {
       setLoading(false);
     }
   };
 
+  // ---------------------------------------------------------------------------
+  // Render Login Card UI
+  // ---------------------------------------------------------------------------
   return (
     <div className="auth-page">
       <div className="auth-card">
+        {/* Header Icon & Title */}
         <div className="auth-header">
           <div style={{ fontSize: '2.5rem', marginBottom: '8px' }}>🎂</div>
           <h1>Welcome Back</h1>
           <p>Sign in to see your birthday reminders</p>
         </div>
 
+        {/* Error message if login failed */}
         {error && <div className="alert alert-danger">{error}</div>}
 
+        {/* Login Form */}
         <form onSubmit={handleSubmit}>
+          {/* Email input */}
           <div className="form-group">
             <label className="form-label" htmlFor="email">
               Email Address
@@ -65,6 +92,7 @@ const LoginPage = () => {
             />
           </div>
 
+          {/* Password input */}
           <div className="form-group">
             <label className="form-label" htmlFor="password">
               Password
@@ -80,6 +108,7 @@ const LoginPage = () => {
             />
           </div>
 
+          {/* Submit button */}
           <button
             type="submit"
             className="btn btn-primary"
@@ -90,6 +119,7 @@ const LoginPage = () => {
           </button>
         </form>
 
+        {/* Link to Registration page */}
         <div style={{ textAlign: 'center', marginTop: '20px', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
           Don't have an account?{' '}
           <Link to="/register" style={{ color: 'var(--color-primary)', fontWeight: '600', textDecoration: 'none' }}>
@@ -102,3 +132,4 @@ const LoginPage = () => {
 };
 
 export default LoginPage;
+

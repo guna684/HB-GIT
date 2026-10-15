@@ -11,22 +11,36 @@ import AddBirthdayPage from './pages/AddBirthdayPage';
 import EditBirthdayPage from './pages/EditBirthdayPage';
 
 /**
- * Root Application component that configures React Router routes
- * and wraps everything in the AuthProvider context.
+ * =============================================================================
+ * ROOT COMPONENT: App
+ * =============================================================================
+ * This is the main entry point for our React user interface.
+ * 
+ * Hierarchy:
+ * 1. <AuthProvider>: Wraps the whole app so any page can access login/theme state.
+ * 2. <BrowserRouter>: Manages browser URLs and back/forward navigation.
+ * 3. <Navbar>: Displayed permanently at the top.
+ * 4. <Routes>: Defines all URL paths:
+ *    - Public pages: /login, /register (anyone can visit)
+ *    - Protected pages: /, /add, /edit/:id (must be logged in)
+ *    - Fallback: Any unknown URL redirects to the home page (/).
  */
 function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
         <div className="app-container">
+          {/* Top navigation bar */}
           <Navbar />
+
+          {/* Main page content area */}
           <main className="main-content">
             <Routes>
-              {/* Public routes */}
+              {/* 1. Public Routes */}
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
 
-              {/* Protected routes (require user login) */}
+              {/* 2. Protected Routes (Wrapped in ProtectedRoute guard) */}
               <Route
                 path="/"
                 element={
@@ -52,7 +66,7 @@ function App() {
                 }
               />
 
-              {/* Fallback route */}
+              {/* 3. Fallback Route: Redirects any unknown route to "/" */}
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </main>
@@ -63,3 +77,4 @@ function App() {
 }
 
 export default App;
+

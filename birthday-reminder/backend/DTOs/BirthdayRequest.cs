@@ -3,9 +3,13 @@ using Microsoft.AspNetCore.Http;
 
 namespace backend.DTOs;
 
-/// <summary>
-/// Custom validation rule to ensure a date of birth is not set to a future date.
-/// </summary>
+/**
+ * =============================================================================
+ * CUSTOM VALIDATION ATTRIBUTE: NotFutureDateAttribute
+ * =============================================================================
+ * Prevents users from selecting a date of birth that is in the future.
+ * ASP.NET Core runs this check automatically whenever a request arrives!
+ */
 public class NotFutureDateAttribute : ValidationAttribute
 {
     protected override ValidationResult? IsValid(object? value, ValidationContext validationContext)
@@ -18,34 +22,43 @@ public class NotFutureDateAttribute : ValidationAttribute
     }
 }
 
-/// <summary>
-/// Data received when creating or updating a birthday.
-/// Sent using multipart/form-data to support an optional image file upload.
-/// </summary>
+/**
+ * =============================================================================
+ * DTO: BirthdayRequest
+ * =============================================================================
+ * What is a DTO (Data Transfer Object)?
+ * A DTO is a lightweight C# class designed specifically for carrying data
+ * across the network between the React frontend and C# backend.
+ * 
+ * Notice:
+ * It contains `IFormFile? Photo` to receive the binary profile photo file
+ * uploaded from the user's browser.
+ */
 public class BirthdayRequest
 {
-    // Full name of the person whose birthday is being saved
+    // Full name of the person (required, max 100 characters)
     [Required(ErrorMessage = "Person name is required")]
     [StringLength(100, ErrorMessage = "Name cannot exceed 100 characters")]
     public string PersonName { get; set; } = string.Empty;
 
-    // The date they were born (cannot be in the future)
+    // Date of birth (cannot be in the future)
     [Required(ErrorMessage = "Date of birth is required")]
     [NotFutureDate]
     public DateTime DateOfBirth { get; set; }
 
-    // Relationship category: Family, Friend, Work, or Other
+    // Relationship category: "Family", "Friend", "Work", or "Other"
     [Required(ErrorMessage = "Relationship is required")]
     public string Relationship { get; set; } = "Friend";
 
-    // Optional notes, gift ideas, or interests
+    // Optional gift ideas, memories, or notes (up to 500 characters)
     [StringLength(500, ErrorMessage = "Notes cannot exceed 500 characters")]
     public string? Notes { get; set; }
 
-    // Number of days in advance to remind the user (0 for day of, 1 for 1 day before, etc.)
+    // Reminder days before the birthday (0 = day of, 1 = 1 day before, etc.)
     [Range(0, 30, ErrorMessage = "Remind days before must be between 0 and 30")]
     public int RemindDaysBefore { get; set; } = 1;
 
-    // Optional photo file uploaded from the user's device (.jpg, .jpeg, .png, .webp)
+    // The optional binary image file sent from <input type="file" />
     public IFormFile? Photo { get; set; }
 }
+

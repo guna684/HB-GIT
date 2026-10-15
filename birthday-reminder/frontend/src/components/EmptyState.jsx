@@ -2,8 +2,20 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 
 /**
- * Friendly empty state displayed when there are no birthdays saved yet
- * or when a search/filter produces 0 results.
+ * =============================================================================
+ * COMPONENT: EmptyState
+ * =============================================================================
+ * A friendly, reusable placeholder displayed when there is no data to show.
+ * 
+ * Used in two scenarios:
+ * 1. When a new user has 0 birthdays saved yet -> Encourages them to add one!
+ * 2. When a search query returns 0 matching results -> Suggests clearing search.
+ * 
+ * Props:
+ * - emoji: Visual icon (defaults to 🎈)
+ * - title: Main headline
+ * - subtitle: Explanation text
+ * - showAddButton: Whether to show the "+ Add Birthday" button
  */
 const EmptyState = ({
   emoji = '🎈',
@@ -26,3 +38,4 @@ const EmptyState = ({
 };
 
 export default EmptyState;
+

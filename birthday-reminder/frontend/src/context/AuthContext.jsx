@@ -1,44 +1,80 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-// Create the Auth Context
+/**
+ * =============================================================================
+ * CONTEXT: AuthContext
+ * =============================================================================
+ * In React, "Context" solves a common problem called "Prop Drilling".
+ * 
+ * Without Context:
+ * If the Navbar, Dashboard, and BirthdayForm all need to know "Who is logged in?",
+ * you would have to manually pass `user` and `token` through every single component.
+ * 
+ * With Context:
+ * We create a single "AuthContext" at the top of our app. Any component anywhere
+ * in the tree can just call `useAuth()` to get the current user, log in, log out,
+ * or toggle light/dark mode!
+ */
 const AuthContext = createContext();
 
-/**
- * Provides authentication state (user, token) and theme mode (light/dark)
- * to all child components throughout the application.
- */
 export const AuthProvider = ({ children }) => {
-  const [token, setToken] = useState(() => localStorage.getItem('token') || null);
-  const [user, setUser] = useState(() => {
-    const savedUser = localStorage.getItem('user');
-    return savedUser ? JSON.parse(savedUser) : null;
+  // ---------------------------------------------------------------------------
+  // 1. JWT Token State
+  // We check localStorage on startup. If a token was saved previously, the user
+  // stays logged in even if they refresh the browser page!
+  // ---------------------------------------------------------------------------
+  const [token, setToken] = useState(() => {
+    return localStorage.getItem('token') || null;
   });
-  const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light');
 
-  // Apply theme to HTML root element whenever it changes
+  // ---------------------------------------------------------------------------
+  // 2. User Info State (Id, Name, Email)
+  // Stored as a JSON string in localStorage, so we parse it back to an object.
+  // ---------------------------------------------------------------------------
+  const [user, setUser] = useState(() => {
+    const savedUserJson = localStorage.getItem('user');
+    return savedUserJson ? JSON.parse(savedUserJson) : null;
+  });
+
+  // ---------------------------------------------------------------------------
+  // 3. Theme Mode (Light / Dark)
+  // ---------------------------------------------------------------------------
+  const [theme, setTheme] = useState(() => {
+    return localStorage.getItem('theme') || 'light';
+  });
+
+  // Whenever the theme changes, update the HTML <html data-theme="..."> attribute
+  // and persist the preference in localStorage so it remembers next time!
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('theme', theme);
   }, [theme]);
 
-  // Toggle between light and dark mode
+  // Function to switch between 'light' and 'dark'
   const toggleTheme = () => {
-    setTheme((prevTheme) => (prevTheme === 'light' ? 'dark' : 'light'));
+    setTheme((currentTheme) => (currentTheme === 'light' ? 'dark' : 'light'));
   };
 
-  // Log in user: save token and user info
+  // ---------------------------------------------------------------------------
+  // 4. Log In Action
+  // Called after a successful response from /api/auth/login or /api/auth/register.
+  // Saves the JWT token and user info to both localStorage and React state.
+  // ---------------------------------------------------------------------------
   const login = (authData) => {
     const { token: jwtToken, userId, name, email } = authData;
-    const userData = { id: userId, name, email };
+    const userInfo = { id: userId, name, email };
 
     localStorage.setItem('token', jwtToken);
-    localStorage.setItem('user', JSON.stringify(userData));
+    localStorage.setItem('user', JSON.stringify(userInfo));
 
     setToken(jwtToken);
-    setUser(userData);
+    setUser(userInfo);
   };
 
-  // Log out user: clear credentials and reset state
+  // ---------------------------------------------------------------------------
+  // 5. Log Out Action
+  // Wipes the JWT token and user info from localStorage and resets state to null.
+  // ---------------------------------------------------------------------------
   const logout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
@@ -46,8 +82,12 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   };
 
-  const isAuthenticated = !!token;
+  // Helper boolean: If a token exists, the user is authenticated!
+  const isAuthenticated = Boolean(token);
 
+  // ---------------------------------------------------------------------------
+  // 6. Provide values to all child components
+  // ---------------------------------------------------------------------------
   return (
     <AuthContext.Provider
       value={{
@@ -65,11 +105,16 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
-// Custom hook to consume the AuthContext easily in components
+/**
+ * Custom Hook: useAuth
+ * Usage in any component:
+ *   const { user, isAuthenticated, logout } = useAuth();
+ */
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error('useAuth must be used inside an <AuthProvider>');
   }
   return context;
 };
+

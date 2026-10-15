@@ -2,24 +2,30 @@ using backend.Models;
 
 namespace backend.Repositories;
 
-/// <summary>
-/// Defines the data access contract for User operations.
-/// Controllers and services depend only on this interface, never on the concrete storage class.
-/// </summary>
+/**
+ * =============================================================================
+ * INTERFACE: IUserRepository
+ * =============================================================================
+ * Blueprint for user data storage.
+ * Implemented by:
+ * 1. InMemoryUserRepository (for fast, zero-config local development)
+ * 2. PostgresUserRepository (for production persistence with PostgreSQL & EF Core)
+ */
 public interface IUserRepository
 {
     /// <summary>
-    /// Finds a user by their unique ID.
+    /// Finds a user by their unique integer ID.
     /// </summary>
     Task<User?> GetByIdAsync(int id);
 
     /// <summary>
-    /// Finds a user by their email address.
+    /// Finds a user by their registered email address.
     /// </summary>
     Task<User?> GetByEmailAsync(string email);
 
     /// <summary>
-    /// Saves a new user to storage and assigns a unique ID.
+    /// Saves a new user and returns the created user entity.
     /// </summary>
     Task<User> CreateAsync(User user);
 }
+

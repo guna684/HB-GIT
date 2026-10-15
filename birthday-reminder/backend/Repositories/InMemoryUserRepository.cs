@@ -2,24 +2,29 @@ using backend.Models;
 
 namespace backend.Repositories;
 
-/// <summary>
-/// Stores user accounts in memory inside a C# List.
-/// This allows us to build and test the app without needing a database installed.
-/// Later, you can replace this with a PostgreSQL repository using EF Core.
-/// </summary>
+/**
+ * =============================================================================
+ * REPOSITORY: InMemoryUserRepository
+ * =============================================================================
+ * Stores user account records in RAM inside a C# List<User>.
+ * 
+ * Allows instant testing of registration, BCrypt password verification,
+ * and login without requiring a PostgreSQL database running locally.
+ */
 public class InMemoryUserRepository : IUserRepository
 {
-    // In-memory list to hold all user records
+    // The in-memory list holding registered users
     private readonly List<User> _users = new();
 
-    // Lock object to make operations safe when multiple requests arrive at the same time
+    // Lock object ensuring thread safety
     private readonly object _lock = new();
 
-    // Counter used to generate unique IDs (1, 2, 3...)
+    // Auto-incrementing counter for unique user IDs (1, 2, 3...)
     private int _nextId = 1;
 
     /// <summary>
-    /// Searches for a user matching the provided ID.
+    /// 1. READ BY ID
+    /// Finds a user by their unique integer ID.
     /// </summary>
     public Task<User?> GetByIdAsync(int id)
     {
@@ -37,7 +42,8 @@ public class InMemoryUserRepository : IUserRepository
     }
 
     /// <summary>
-    /// Searches for a user matching the given email address (case-insensitive).
+    /// 2. READ BY EMAIL
+    /// Finds a user by their email address (case-insensitive).
     /// </summary>
     public Task<User?> GetByEmailAsync(string email)
     {
@@ -55,7 +61,8 @@ public class InMemoryUserRepository : IUserRepository
     }
 
     /// <summary>
-    /// Assigns an incremental ID to the new user and adds them to our in-memory list.
+    /// 3. CREATE USER
+    /// Assigns an incremental user ID and appends them to our list.
     /// </summary>
     public Task<User> CreateAsync(User user)
     {
@@ -68,3 +75,4 @@ public class InMemoryUserRepository : IUserRepository
         }
     }
 }
+

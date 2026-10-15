@@ -4,7 +4,17 @@ import { createBirthday } from '../api/birthdayApi';
 import BirthdayForm from '../components/BirthdayForm';
 
 /**
- * Page allowing the user to create a new birthday reminder with an optional photo.
+ * =============================================================================
+ * PAGE: AddBirthdayPage
+ * =============================================================================
+ * This page lets users add a new birthday reminder.
+ * 
+ * How it works:
+ * 1. It renders the shared <BirthdayForm /> component.
+ * 2. When the user clicks "Save Birthday", handleFormSubmit receives the FormData.
+ * 3. It calls createBirthday(formData) which sends a POST request to ASP.NET Core.
+ * 4. Once saved successfully, React Router's `navigate('/')` sends the user back
+ *    to the Dashboard where they see their new birthday!
  */
 const AddBirthdayPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -16,11 +26,15 @@ const AddBirthdayPage = () => {
     setServerError('');
 
     try {
+      // Send POST request to backend with form data and optional photo
       await createBirthday(formData);
+
+      // On success, redirect back to Dashboard
       navigate('/');
     } catch (err) {
-      const msg = err.response?.data?.message || 'Failed to save birthday. Please try again.';
-      setServerError(msg);
+      // If the backend returns an error (e.g. file too big), display it to the user
+      const message = err.response?.data?.message || 'Failed to save birthday. Please try again.';
+      setServerError(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -28,11 +42,13 @@ const AddBirthdayPage = () => {
 
   return (
     <div className="form-page-container">
+      {/* Page Title & Subtitle */}
       <div className="form-page-header">
         <h1>Add a Birthday</h1>
         <p>Save details for someone you care about</p>
       </div>
 
+      {/* Reusable Form Component */}
       <BirthdayForm
         onSubmit={handleFormSubmit}
         isSubmitting={isSubmitting}
@@ -44,3 +60,4 @@ const AddBirthdayPage = () => {
 };
 
 export default AddBirthdayPage;
+

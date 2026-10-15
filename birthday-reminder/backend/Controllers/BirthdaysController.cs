@@ -6,11 +6,19 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace backend.Controllers;
 
-/// <summary>
-/// Controller for managing birthdays.
-/// All endpoints require a valid JWT token in the Authorization header: "Bearer {token}".
-/// Users can only access and modify their own birthday entries.
-/// </summary>
+/**
+ * =============================================================================
+ * CONTROLLER: BirthdaysController
+ * =============================================================================
+ * Handles all CRUD (Create, Read, Update, Delete) actions for Birthday reminders.
+ * 
+ * Key Concepts for Beginners:
+ * - [Authorize]: Enforces that every endpoint in this controller requires a valid
+ *   JWT token in the "Authorization: Bearer <token>" request header.
+ *   If someone tries to access this without a token, ASP.NET returns 401 Unauthorized!
+ * - User Isolation: Every request extracts the logged-in user's unique ID from the
+ *   JWT token. This guarantees that User A can NEVER see or modify User B's birthdays!
+ */
 [Authorize]
 [ApiController]
 [Route("api/birthdays")]
@@ -18,14 +26,15 @@ public class BirthdaysController : ControllerBase
 {
     private readonly BirthdayService _birthdayService;
 
+    // BirthdayService is injected automatically by ASP.NET Core Dependency Injection
     public BirthdaysController(BirthdayService birthdayService)
     {
         _birthdayService = birthdayService;
     }
 
     /// <summary>
-    /// Gets all birthdays belonging to the logged-in user.
     /// GET /api/birthdays
+    /// Retrieves all birthdays belonging to the logged-in user, sorted by upcoming first.
     /// </summary>
     [HttpGet]
     public async Task<IActionResult> GetAll()
@@ -38,8 +47,8 @@ public class BirthdaysController : ControllerBase
     }
 
     /// <summary>
-    /// Gets upcoming birthdays within the next 30 days, sorted by closest date first.
     /// GET /api/birthdays/upcoming
+    /// Retrieves birthdays happening within the next 30 days (0 to 30 days away).
     /// </summary>
     [HttpGet("upcoming")]
     public async Task<IActionResult> GetUpcoming()
@@ -52,8 +61,8 @@ public class BirthdaysController : ControllerBase
     }
 
     /// <summary>
-    /// Gets a single birthday by ID.
     /// GET /api/birthdays/{id}
+    /// Retrieves a single birthday by ID. Returns 404 if not found or owned by someone else.
     /// </summary>
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(int id)
@@ -71,8 +80,9 @@ public class BirthdaysController : ControllerBase
     }
 
     /// <summary>
-    /// Creates a new birthday reminder. Accepts multipart/form-data for optional photo upload.
     /// POST /api/birthdays
+    /// Creates a new birthday reminder.
+    /// Uses [FromForm] and [Consumes("multipart/form-data")] to accept an optional photo file upload.
     /// </summary>
     [HttpPost]
     [Consumes("multipart/form-data")]
@@ -84,17 +94,20 @@ public class BirthdaysController : ControllerBase
         try
         {
             BirthdayResponse created = await _birthdayService.CreateForUserAsync(userId, request, baseUrl);
+            
+            // CreatedAtAction returns HTTP 201 Created with a "Location" header pointing to the new resource
             return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
         }
         catch (ArgumentException ex)
         {
+            // If the photo was too big or had an invalid extension, return 400 Bad Request
             return BadRequest(new { message = ex.Message });
         }
     }
 
     /// <summary>
-    /// Updates an existing birthday by ID. Accepts multipart/form-data for optional new photo upload.
     /// PUT /api/birthdays/{id}
+    /// Updates an existing birthday reminder by ID.
     /// </summary>
     [HttpPut("{id}")]
     [Consumes("multipart/form-data")]
@@ -120,8 +133,8 @@ public class BirthdaysController : ControllerBase
     }
 
     /// <summary>
-    /// Deletes a birthday and its associated photo file.
     /// DELETE /api/birthdays/{id}
+    /// Deletes a birthday and safely deletes its photo file from disk.
     /// </summary>
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
@@ -137,8 +150,15 @@ public class BirthdaysController : ControllerBase
         return Ok(new { message = "Birthday deleted successfully." });
     }
 
+    // =========================================================================
+    // PRIVATE CONTROLLER HELPERS
+    // =========================================================================
+
     /// <summary>
-    /// Extracts the logged-in user's integer ID from the JWT token's claims.
+    /// Helper: GetLoggedInUserId
+    /// Reads the integer user ID embedded in the JWT token's claims.
+    /// Because the JWT is cryptographically signed by the server, this value
+    /// cannot be faked or tampered with by the user.
     /// </summary>
     private int GetLoggedInUserId()
     {
@@ -152,11 +172,14 @@ public class BirthdaysController : ControllerBase
     }
 
     /// <summary>
-    /// Generates the base URL of the currently running backend server (e.g., http://localhost:5000).
-    /// Used to build full URLs for uploaded profile photos.
+    /// Helper: GetBaseUrl
+    /// Detects the server's current address (e.g. "http://localhost:5000").
+    /// We use this to turn "uploads/photo.jpg" into a complete URL:
+    /// "http://localhost:5000/uploads/photo.jpg" so the frontend can display it!
     /// </summary>
     private string GetBaseUrl()
     {
         return $"{Request.Scheme}://{Request.Host}";
     }
 }
+

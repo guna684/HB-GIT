@@ -6,10 +6,20 @@ using Microsoft.Extensions.Logging;
 
 namespace backend.Services;
 
-/// <summary>
-/// A background worker that runs periodically (every 1 hour) to check for upcoming birthdays
-/// and logs reminder alerts.
-/// </summary>
+/**
+ * =============================================================================
+ * BACKGROUND SERVICE: ReminderBackgroundService
+ * =============================================================================
+ * What is a BackgroundService?
+ * Most code in an ASP.NET Core API only runs when a user clicks something in their
+ * browser (an HTTP request arrives).
+ * 
+ * But what if nobody visits the website for 3 days? How do reminder emails or
+ * notifications get triggered?
+ * 
+ * That's why BackgroundService exists! It is a background worker loop that runs
+ * continuously on the server (e.g. once every hour), independent of user visits.
+ */
 public class ReminderBackgroundService : BackgroundService
 {
     private readonly IServiceProvider _serviceProvider;
@@ -24,13 +34,14 @@ public class ReminderBackgroundService : BackgroundService
     }
 
     /// <summary>
-    /// Executes the background loop while the application is running.
-    /// Runs immediately on startup, then pauses for 1 hour before checking again.
+    /// The main background execution loop. Runs when the server starts and stops
+    /// when the server shuts down.
     /// </summary>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation("ReminderBackgroundService started.");
 
+        // Loop runs as long as the backend server is alive
         while (!stoppingToken.IsCancellationRequested)
         {
             try
@@ -42,7 +53,7 @@ public class ReminderBackgroundService : BackgroundService
                 _logger.LogError(ex, "An error occurred while checking birthday reminders.");
             }
 
-            // Wait 1 hour before checking again
+            // Sleep for 1 hour before checking again
             await Task.Delay(TimeSpan.FromHours(1), stoppingToken);
         }
 
@@ -50,12 +61,15 @@ public class ReminderBackgroundService : BackgroundService
     }
 
     /// <summary>
-    /// Loads all birthdays and logs alerts for any that fall within their reminder threshold.
+    /// Inspects all birthdays in the database to see if any occur today or within
+    /// their configured reminder threshold (e.g. 1 day before).
     /// </summary>
     private async Task CheckBirthdaysAsync()
     {
-        // Using an IServiceScope ensures this code will work without modifications
-        // even when IBirthdayRepository is changed from InMemory (Singleton) to EF Core (Scoped).
+        // WHY CREATE A SCOPE?
+        // ReminderBackgroundService is a Singleton (lives forever).
+        // Database contexts and repositories are Scoped (created per request).
+        // Creating an IServiceScope here lets us safely request the Scoped repository!
         using (IServiceScope scope = _serviceProvider.CreateScope())
         {
             IBirthdayRepository repository = scope.ServiceProvider.GetRequiredService<IBirthdayRepository>();
@@ -67,29 +81,29 @@ public class ReminderBackgroundService : BackgroundService
             {
                 (int daysUntil, int turningAge) = BirthdayService.CalculateBirthdayStats(birthday.DateOfBirth, today);
 
-                // Check if the birthday falls within the user's reminder window
+                // Check if the upcoming birthday is within the user's alert window
                 if (daysUntil <= birthday.RemindDaysBefore)
                 {
                     string message;
                     if (daysUntil == 0)
                     {
-                        message = $"Reminder: {birthday.PersonName}'s birthday is TODAY! (turning {turningAge})";
+                        message = $"🎂 Alert: {birthday.PersonName}'s birthday is TODAY! (turning {turningAge})";
                     }
                     else if (daysUntil == 1)
                     {
-                        message = $"Reminder: {birthday.PersonName}'s birthday is TOMORROW (turning {turningAge})";
+                        message = $"🎂 Alert: {birthday.PersonName}'s birthday is TOMORROW (turning {turningAge})";
                     }
                     else
                     {
-                        message = $"Reminder: {birthday.PersonName}'s birthday is in {daysUntil} days (turning {turningAge})";
+                        message = $"🎂 Alert: {birthday.PersonName}'s birthday is in {daysUntil} days (turning {turningAge})";
                     }
 
                     _logger.LogInformation(message);
 
-                    // TODO: In the future, inject IEmailService and send an email or push notification to the user here.
-                    // Example: await emailService.SendReminderEmailAsync(user.Email, birthday.PersonName, daysUntil);
+                    // Future extension: send email / push notification to user here
                 }
             }
         }
     }
 }
+

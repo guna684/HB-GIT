@@ -6,58 +6,89 @@ import BirthdayCard from '../components/BirthdayCard';
 import EmptyState from '../components/EmptyState';
 
 /**
- * Main dashboard page showing greetings, today's celebration banner,
- * upcoming birthdays (next 30 days), and all birthdays with search/filter.
+ * =============================================================================
+ * PAGE: DashboardPage
+ * =============================================================================
+ * The main home page of the app after logging in.
+ * Features:
+ * 1. Warm greeting with the logged-in user's first name.
+ * 2. Big celebration banner if anyone's birthday is TODAY!
+ * 3. "Upcoming Birthdays" section (next 30 days).
+ * 4. "All Birthdays" section with live search and relationship filter.
+ * 5. Safe Delete confirmation popup modal.
  */
 const DashboardPage = () => {
+  // Grab the currently logged-in user from our global AuthContext
   const { user } = useAuth();
 
-  const [allBirthdays, setAllBirthdays] = useState([]);
-  const [upcomingBirthdays, setUpcomingBirthdays] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  // ---------------------------------------------------------------------------
+  // STEP 1: COMPONENT STATE
+  // React state holds the data that changes over time and needs to update the UI.
+  // ---------------------------------------------------------------------------
+  const [allBirthdays, setAllBirthdays] = useState([]);         // List of all birthdays
+  const [upcomingBirthdays, setUpcomingBirthdays] = useState([]); // List of birthdays in next 30 days
+  const [loading, setLoading] = useState(true);                  // True while fetching data from backend
+  const [error, setError] = useState('');                        // Error message if fetch fails
 
-  // Search & filter state
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedRelationship, setSelectedRelationship] = useState('All');
+  // Search & category filter states
+  const [searchTerm, setSearchTerm] = useState('');             // Text typed into the search bar
+  const [selectedRelationship, setSelectedRelationship] = useState('All'); // "All", "Family", "Friend", etc.
 
-  // Deletion modal state
-  const [birthdayToDelete, setBirthdayToDelete] = useState(null);
-  const [isDeleting, setIsDeleting] = useState(false);
+  // Delete modal state
+  const [birthdayToDelete, setBirthdayToDelete] = useState(null); // The birthday object to be deleted (or null if modal closed)
+  const [isDeleting, setIsDeleting] = useState(false);            // True while DELETE API call is in progress
 
-  // Load birthdays on initial mount
-  const loadData = async () => {
+  // ---------------------------------------------------------------------------
+  // STEP 2: LOAD DATA FROM BACKEND ON PAGE LOAD
+  // useEffect with an empty array [] runs exactly once when this page first appears on screen.
+  // ---------------------------------------------------------------------------
+  const loadDashboardData = async () => {
     setLoading(true);
     setError('');
 
     try {
-      const [all, upcoming] = await Promise.all([
+      // Promise.all runs both requests at the same time for faster page load!
+      const [allResults, upcomingResults] = await Promise.all([
         getAllBirthdays(),
         getUpcomingBirthdays(),
       ]);
-      setAllBirthdays(all);
-      setUpcomingBirthdays(upcoming);
+
+      setAllBirthdays(allResults);
+      setUpcomingBirthdays(upcomingResults);
     } catch (err) {
       setError('Failed to load birthdays. Please check your connection.');
     } finally {
+      // Turn off the spinner whether the request succeeded or failed
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadData();
+    loadDashboardData();
   }, []);
 
-  // Handle confirmation of deletion
-  const confirmDelete = async () => {
+  // ---------------------------------------------------------------------------
+  // STEP 3: HANDLE DELETING A BIRTHDAY
+  // When the user confirms deletion in the popup modal:
+  // 1. Call backend API: DELETE /api/birthdays/{id}
+  // 2. Remove that item from our local React state so UI updates immediately!
+  // ---------------------------------------------------------------------------
+  const handleConfirmDelete = async () => {
     if (!birthdayToDelete) return;
 
     setIsDeleting(true);
     try {
       await deleteBirthday(birthdayToDelete.id);
-      // Remove deleted item from local state
-      setAllBirthdays((prev) => prev.filter((b) => b.id !== birthdayToDelete.id));
-      setUpcomingBirthdays((prev) => prev.filter((b) => b.id !== birthdayToDelete.id));
+
+      // Filter out the deleted birthday from both lists in state
+      setAllBirthdays((previousList) => 
+        previousList.filter((b) => b.id !== birthdayToDelete.id)
+      );
+      setUpcomingBirthdays((previousList) => 
+        previousList.filter((b) => b.id !== birthdayToDelete.id)
+      );
+
+      // Close the modal
       setBirthdayToDelete(null);
     } catch (err) {
       alert('Failed to delete birthday. Please try again.');
@@ -66,30 +97,44 @@ const DashboardPage = () => {
     }
   };
 
-  // Find people whose birthday is TODAY
+  // ---------------------------------------------------------------------------
+  // STEP 4: FILTERING & SEARCH LOGIC
+  // Notice: We do filtering directly in React memory! We do NOT need to call the
+  // backend on every keystroke, which makes the search instantaneous!
+  // ---------------------------------------------------------------------------
+  
+  // Find anyone whose birthday is TODAY (daysUntilBirthday === 0)
   const todayBirthdays = allBirthdays.filter((b) => b.daysUntilBirthday === 0);
 
-  // Filter "All Birthdays" based on search text and selected relationship
+  // Filter "All Birthdays" by search term (name or notes) and relationship dropdown
   const filteredBirthdays = allBirthdays.filter((item) => {
-    const matchesSearch =
-      item.personName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (item.notes && item.notes.toLowerCase().includes(searchTerm.toLowerCase()));
+    const searchLower = searchTerm.toLowerCase();
+    
+    // Check if search matches name or notes
+    const matchesName = item.personName.toLowerCase().includes(searchLower);
+    const matchesNotes = item.notes && item.notes.toLowerCase().includes(searchLower);
+    const matchesSearch = matchesName || matchesNotes;
 
-    const matchesRelationship =
+    // Check if category matches
+    const matchesCategory =
       selectedRelationship === 'All' ||
       item.relationship.toLowerCase() === selectedRelationship.toLowerCase();
 
-    return matchesSearch && matchesRelationship;
+    return matchesSearch && matchesCategory;
   });
 
-  const firstName = user?.name ? user.name.split(' ')[0] : 'Friend';
+  // Extract first name for a friendly greeting (e.g. "Ravi Kumar" -> "Ravi")
+  const userFirstName = user?.name ? user.name.split(' ')[0] : 'Friend';
 
+  // ---------------------------------------------------------------------------
+  // STEP 5: RENDER THE DASHBOARD UI
+  // ---------------------------------------------------------------------------
   return (
     <div>
-      {/* Top Header: Greeting + Add Birthday button */}
+      {/* 1. Header: Greeting & "+ Add Birthday" Button */}
       <div className="dashboard-header">
         <div className="greeting-text">
-          <h1>Hi {firstName} 👋</h1>
+          <h1>Hi {userFirstName} 👋</h1>
           <p>Here are the birthdays you are keeping track of.</p>
         </div>
         <Link to="/add" className="btn btn-primary">
@@ -97,7 +142,7 @@ const DashboardPage = () => {
         </Link>
       </div>
 
-      {/* Highlighted Celebration Banner if someone has a birthday today */}
+      {/* 2. Today's Celebration Banner (Shows only if someone has a birthday today!) */}
       {todayBirthdays.length > 0 && (
         <div className="today-banner">
           <div className="today-banner-content">
@@ -114,21 +159,23 @@ const DashboardPage = () => {
         </div>
       )}
 
-      {/* Error alert */}
+      {/* 3. Error Banner (if API failed) */}
       {error && <div className="alert alert-danger">{error}</div>}
 
-      {/* Loading state */}
+      {/* 4. Main Content: Loading Spinner vs Empty State vs Birthday Lists */}
       {loading ? (
+        // State A: Loading spinner
         <div className="spinner-container">
           <div className="spinner"></div>
           <p>Loading your reminders...</p>
         </div>
       ) : allBirthdays.length === 0 ? (
-        // Global empty state if user hasn't added any birthdays
+        // State B: No birthdays added yet (shows friendly empty state)
         <EmptyState />
       ) : (
+        // State C: Show birthday sections
         <>
-          {/* Section 1: Upcoming Birthdays (Next 30 Days) */}
+          {/* Section A: Upcoming Birthdays (Next 30 Days) */}
           <section className="section">
             <div className="section-header">
               <h2 className="section-title">
@@ -154,7 +201,7 @@ const DashboardPage = () => {
             )}
           </section>
 
-          {/* Section 2: All Birthdays with Search & Filter */}
+          {/* Section B: All Birthdays with Live Search & Category Filter */}
           <section className="section">
             <div className="section-header">
               <h2 className="section-title">
@@ -163,7 +210,7 @@ const DashboardPage = () => {
               </h2>
             </div>
 
-            {/* Filter Bar */}
+            {/* Search Input and Category Dropdown */}
             <div className="filter-bar">
               <div className="search-input-wrapper">
                 <span className="search-icon">🔍</span>
@@ -189,6 +236,7 @@ const DashboardPage = () => {
               </select>
             </div>
 
+            {/* List or Search Empty State */}
             {filteredBirthdays.length === 0 ? (
               <EmptyState
                 emoji="🔍"
@@ -211,7 +259,7 @@ const DashboardPage = () => {
         </>
       )}
 
-      {/* Delete Confirmation Modal */}
+      {/* 5. Delete Confirmation Popup Modal */}
       {birthdayToDelete && (
         <div className="modal-overlay" onClick={() => !isDeleting && setBirthdayToDelete(null)}>
           <div className="modal-card" onClick={(e) => e.stopPropagation()}>
@@ -235,7 +283,7 @@ const DashboardPage = () => {
               <button
                 type="button"
                 className="btn btn-danger"
-                onClick={confirmDelete}
+                onClick={handleConfirmDelete}
                 disabled={isDeleting}
               >
                 {isDeleting ? 'Deleting...' : 'Delete'}

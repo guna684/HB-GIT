@@ -1,10 +1,20 @@
 import axios from 'axios';
 
-// Get backend API base URL from Vite environment variable (.env)
-// Defaults to http://localhost:5000/api if not specified
+/**
+ * =============================================================================
+ * API CLIENT: axiosClient
+ * =============================================================================
+ * Axios is a popular JavaScript library used to send HTTP requests (GET, POST,
+ * PUT, DELETE) to our backend server.
+ * 
+ * Instead of configuring URL, headers, and error handling on every single API call,
+ * we create this single "axiosClient" instance that handles it automatically!
+ */
+
+// 1. Get backend API base URL from Vite's environment variables (.env file)
+// If not specified, default to http://localhost:5000/api
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
-// Create a configured Axios instance
 const axiosClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
@@ -12,29 +22,46 @@ const axiosClient = axios.create({
   },
 });
 
-// Request Interceptor: Automatically attach the JWT Bearer token to every outgoing request
+/**
+ * 2. REQUEST INTERCEPTOR: The "Security Badge Stamper"
+ * Before ANY request leaves the browser and goes to the backend, this code runs:
+ * - Checks if we have a JWT token saved in localStorage.
+ * - If yes, it attaches the header: "Authorization: Bearer <token>"
+ * - This allows the ASP.NET Core backend to know who you are!
+ */
 axiosClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    const savedToken = localStorage.getItem('token');
+    if (savedToken) {
+      config.headers.Authorization = `Bearer ${savedToken}`;
     }
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => {
+    return Promise.reject(error);
+  }
 );
 
-// Response Interceptor: If the server returns 401 Unauthorized, log out the user
+/**
+ * 3. RESPONSE INTERCEPTOR: The "Expired Session Guard"
+ * Every time the backend sends a response back to the browser, this code runs:
+ * - If status is 401 Unauthorized (meaning your token expired or is fake):
+ *   it automatically clears your credentials and redirects you to the login screen!
+ */
 axiosClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // If request succeeded (200 OK, 201 Created), simply return response data
+    return response;
+  },
   (error) => {
     if (error.response && error.response.status === 401) {
-      // Clear invalid or expired credentials
+      // Clear expired credentials
       localStorage.removeItem('token');
       localStorage.removeItem('user');
 
-      // Redirect to login page if not already there
-      if (!window.location.pathname.includes('/login') && !window.location.pathname.includes('/register')) {
+      // Redirect to login page if we are not already on login or register
+      const currentPath = window.location.pathname;
+      if (!currentPath.includes('/login') && !currentPath.includes('/register')) {
         window.location.href = '/login';
       }
     }
@@ -43,3 +70,4 @@ axiosClient.interceptors.response.use(
 );
 
 export default axiosClient;
+

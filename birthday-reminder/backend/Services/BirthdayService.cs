@@ -6,16 +6,25 @@ using Microsoft.AspNetCore.Http;
 
 namespace backend.Services;
 
-/// <summary>
-/// Handles business logic for birthday management:
-/// calculating upcoming dates, turning ages, photo uploads, and user isolation.
-/// </summary>
+/**
+ * =============================================================================
+ * SERVICE: BirthdayService
+ * =============================================================================
+ * The core "Brain" (Business Logic Layer) of the Birthday Reminder app.
+ * 
+ * Responsibilities:
+ * 1. User Isolation: Ensures users only view, edit, and delete their OWN birthdays.
+ * 2. Photo Storage: Validates extension/size, saves images to wwwroot/uploads with unique GUIDs.
+ * 3. Math & Date Calculations: Calculates exact countdown days and turning age,
+ *    correctly handling leap years (people born on Feb 29!).
+ * 4. Data Mapping: Translates database entities (Birthday) into responses (BirthdayResponse).
+ */
 public class BirthdayService
 {
     private readonly IBirthdayRepository _birthdayRepository;
     private readonly IWebHostEnvironment _environment;
 
-    // Allowed image file extensions for profile photos
+    // Allowed image file extensions for profile pictures
     private static readonly string[] AllowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp" };
 
     // Maximum file upload size: 2 Megabytes (2 * 1024 * 1024 bytes)
@@ -28,28 +37,31 @@ public class BirthdayService
     }
 
     /// <summary>
-    /// Retrieves all birthdays belonging to the logged-in user, mapped to response DTOs.
-    /// Birthdays are sorted so the closest upcoming one comes first.
+    /// 1. GET ALL BIRTHDAYS FOR USER
+    /// Fetches all birthdays belonging to the logged-in user and sorts them so
+    /// the closest upcoming birthday appears first.
     /// </summary>
     public async Task<List<BirthdayResponse>> GetAllForUserAsync(int userId, string baseUrl)
     {
+        // 1. Fetch raw records from repository
         List<Birthday> list = await _birthdayRepository.GetAllByUserIdAsync(userId);
         List<BirthdayResponse> responses = new();
 
+        // 2. Map each database model into a response DTO with calculated stats
         foreach (Birthday item in list)
         {
             responses.Add(MapToResponse(item, baseUrl));
         }
 
-        // Sort by days until birthday (nearest first)
+        // 3. Sort ascending: closest upcoming birthday (0 days) comes first!
         responses.Sort((a, b) => a.DaysUntilBirthday.CompareTo(b.DaysUntilBirthday));
 
         return responses;
     }
 
     /// <summary>
-    /// Retrieves upcoming birthdays within the next 30 days (0 to 30 days remaining),
-    /// sorted by nearest first.
+    /// 2. GET UPCOMING BIRTHDAYS (NEXT 30 DAYS)
+    /// Filters birthdays that occur between today (0 days) and 30 days from now.
     /// </summary>
     public async Task<List<BirthdayResponse>> GetUpcomingForUserAsync(int userId, string baseUrl)
     {
@@ -68,12 +80,14 @@ public class BirthdayService
     }
 
     /// <summary>
-    /// Finds a single birthday by ID, ensuring it belongs to the logged-in user.
-    /// Returns null if not found or if owned by another user.
+    /// 3. GET SINGLE BIRTHDAY BY ID
+    /// Verifies the birthday exists and belongs to the requesting user.
     /// </summary>
     public async Task<BirthdayResponse?> GetByIdForUserAsync(int id, int userId, string baseUrl)
     {
         Birthday? item = await _birthdayRepository.GetByIdAsync(id);
+        
+        // Security check: If record doesn't exist OR belongs to another user, return null
         if (item == null || item.UserId != userId)
         {
             return null;
@@ -83,19 +97,20 @@ public class BirthdayService
     }
 
     /// <summary>
-    /// Creates a new birthday entry for the user.
-    /// Handles saving an optional photo to wwwroot/uploads.
+    /// 4. CREATE BIRTHDAY
+    /// Saves a new birthday and processes an optional photo upload.
     /// </summary>
     public async Task<BirthdayResponse> CreateForUserAsync(int userId, BirthdayRequest request, string baseUrl)
     {
         string? photoFileName = null;
 
-        // Process photo upload if the user provided one
+        // If the user uploaded a photo file, validate and save it to disk
         if (request.Photo != null && request.Photo.Length > 0)
         {
             photoFileName = await SavePhotoAsync(request.Photo);
         }
 
+        // Construct the database model
         Birthday newBirthday = new()
         {
             UserId = userId,
@@ -107,23 +122,25 @@ public class BirthdayService
             PhotoFileName = photoFileName
         };
 
+        // Save to repository (assigns a unique ID)
         Birthday created = await _birthdayRepository.CreateAsync(newBirthday);
         return MapToResponse(created, baseUrl);
     }
 
     /// <summary>
-    /// Updates an existing birthday's details.
-    /// If a new photo is uploaded, the old photo file is safely deleted from disk.
+    /// 5. UPDATE BIRTHDAY
+    /// Updates an existing birthday. If a new photo is uploaded, deletes the old one.
     /// </summary>
     public async Task<BirthdayResponse?> UpdateForUserAsync(int id, int userId, BirthdayRequest request, string baseUrl)
     {
+        // 1. Fetch existing record and verify ownership
         Birthday? existing = await _birthdayRepository.GetByIdAsync(id);
         if (existing == null || existing.UserId != userId)
         {
             return null;
         }
 
-        // If a new photo is uploaded, delete the old one and save the new one
+        // 2. If a new photo was uploaded, delete the old photo file to save disk space
         if (request.Photo != null && request.Photo.Length > 0)
         {
             if (!string.IsNullOrEmpty(existing.PhotoFileName))
@@ -133,12 +150,14 @@ public class BirthdayService
             existing.PhotoFileName = await SavePhotoAsync(request.Photo);
         }
 
+        // 3. Update fields with new values
         existing.PersonName = request.PersonName.Trim();
         existing.DateOfBirth = request.DateOfBirth;
         existing.Relationship = request.Relationship;
         existing.Notes = request.Notes?.Trim();
         existing.RemindDaysBefore = request.RemindDaysBefore;
 
+        // 4. Save changes
         Birthday? updated = await _birthdayRepository.UpdateAsync(existing);
         if (updated == null)
         {
@@ -149,38 +168,44 @@ public class BirthdayService
     }
 
     /// <summary>
-    /// Deletes a birthday and removes its associated photo from disk if present.
-    /// Ensures only the owner can delete their birthday.
+    /// 6. DELETE BIRTHDAY
+    /// Deletes a birthday record and removes its uploaded photo file from disk.
     /// </summary>
     public async Task<bool> DeleteForUserAsync(int id, int userId)
     {
+        // 1. Verify record exists and belongs to requesting user
         Birthday? existing = await _birthdayRepository.GetByIdAsync(id);
         if (existing == null || existing.UserId != userId)
         {
             return false;
         }
 
-        // Delete photo file from disk if one exists
+        // 2. Delete photo file from disk if present
         if (!string.IsNullOrEmpty(existing.PhotoFileName))
         {
             DeletePhotoFile(existing.PhotoFileName);
         }
 
+        // 3. Delete from repository
         return await _birthdayRepository.DeleteAsync(id);
     }
+
+    // =========================================================================
+    // PRIVATE HELPER METHODS
+    // =========================================================================
 
     /// <summary>
     /// Validates and saves an uploaded photo to wwwroot/uploads with a unique GUID name.
     /// </summary>
     private async Task<string> SavePhotoAsync(IFormFile file)
     {
-        // 1. Check file size
+        // Check 1: File size limit (2 MB)
         if (file.Length > MaxFileSizeBytes)
         {
             throw new ArgumentException("Photo file size cannot exceed 2 MB.");
         }
 
-        // 2. Check file extension
+        // Check 2: File extension check (.jpg, .jpeg, .png, .webp)
         string extension = Path.GetExtension(file.FileName).ToLowerInvariant();
         bool isAllowed = false;
         foreach (string allowed in AllowedExtensions)
@@ -197,7 +222,7 @@ public class BirthdayService
             throw new ArgumentException("Only .jpg, .jpeg, .png, and .webp images are allowed.");
         }
 
-        // 3. Determine upload folder path in wwwroot/uploads
+        // Determine destination folder (wwwroot/uploads)
         string webRootPath = _environment.WebRootPath;
         if (string.IsNullOrEmpty(webRootPath))
         {
@@ -210,11 +235,11 @@ public class BirthdayService
             Directory.CreateDirectory(uploadsFolder);
         }
 
-        // 4. Generate unique file name to prevent accidental overwrites
+        // Generate unique GUID filename so two photos named "image.jpg" never overwrite each other!
         string uniqueFileName = $"{Guid.NewGuid()}{extension}";
         string fullFilePath = Path.Combine(uploadsFolder, uniqueFileName);
 
-        // 5. Write the file bytes to disk
+        // Copy file stream to disk
         using (FileStream stream = new(fullFilePath, FileMode.Create))
         {
             await file.CopyToAsync(stream);
@@ -224,7 +249,7 @@ public class BirthdayService
     }
 
     /// <summary>
-    /// Helper method to delete a photo file from wwwroot/uploads.
+    /// Safely deletes a photo file from wwwroot/uploads if it exists.
     /// </summary>
     private void DeletePhotoFile(string fileName)
     {
@@ -243,14 +268,14 @@ public class BirthdayService
             }
             catch
             {
-                // Silently ignore deletion errors if file is locked or already gone
+                // Silently ignore if file is locked or already removed
             }
         }
     }
 
     /// <summary>
-    /// Maps a Birthday database model to a BirthdayResponse DTO.
-    /// Computes daysUntilBirthday, turningAge, and full photoUrl.
+    /// Maps a database Birthday entity to a client-friendly BirthdayResponse DTO.
+    /// Calculates DaysUntilBirthday, TurningAge, and the full PhotoUrl.
     /// </summary>
     private static BirthdayResponse MapToResponse(Birthday item, string baseUrl)
     {
@@ -259,7 +284,7 @@ public class BirthdayService
         string? fullPhotoUrl = null;
         if (!string.IsNullOrEmpty(item.PhotoFileName))
         {
-            // Create full URL like http://localhost:5000/uploads/guid.jpg
+            // Turn "guid.jpg" into "http://localhost:5000/uploads/guid.jpg"
             fullPhotoUrl = $"{baseUrl.TrimEnd('/')}/uploads/{item.PhotoFileName}";
         }
 
@@ -279,7 +304,7 @@ public class BirthdayService
 
     /// <summary>
     /// Calculates the number of days until the person's next birthday and their upcoming age.
-    /// Handles February 29 leap year babies correctly by using February 28 in non-leap years.
+    /// Correctly handles February 29 leap-year babies by using February 28 in non-leap years!
     /// </summary>
     public static (int daysUntil, int turningAge) CalculateBirthdayStats(DateTime dateOfBirth, DateTime today)
     {
@@ -289,7 +314,7 @@ public class BirthdayService
 
         int currentYear = today.Year;
 
-        // 1. Get the birthday for the current year (handling Feb 29 if necessary)
+        // Step 1: Find their birthday date in the current calendar year
         DateTime birthdayThisYear = GetDateInYear(birthMonth, birthDay, currentYear);
 
         DateTime nextBirthdayDate;
@@ -297,26 +322,26 @@ public class BirthdayService
 
         if (birthdayThisYear.Date >= today.Date)
         {
-            // Birthday is today or later this year
+            // Birthday is either TODAY or coming up later this year
             nextBirthdayDate = birthdayThisYear;
             turningAge = currentYear - birthYear;
         }
         else
         {
-            // Birthday already passed earlier this year, so next one is next year
+            // Birthday already passed earlier this year, so next one is next year!
             int nextYear = currentYear + 1;
             nextBirthdayDate = GetDateInYear(birthMonth, birthDay, nextYear);
             turningAge = nextYear - birthYear;
         }
 
+        // Calculate days difference
         int daysUntil = (int)(nextBirthdayDate.Date - today.Date).TotalDays;
         return (daysUntil, turningAge);
     }
 
     /// <summary>
-    /// Returns a valid DateTime for a given month and day in a target year.
-    /// If the birth date is February 29 and the target year is not a leap year,
-    /// it safely falls back to February 28.
+    /// Returns a valid DateTime for a month/day in a specific year.
+    /// If someone was born on Feb 29 and target year is NOT a leap year, returns Feb 28.
     /// </summary>
     private static DateTime GetDateInYear(int month, int day, int year)
     {
@@ -331,3 +356,4 @@ public class BirthdayService
         return new DateTime(year, month, day);
     }
 }
+

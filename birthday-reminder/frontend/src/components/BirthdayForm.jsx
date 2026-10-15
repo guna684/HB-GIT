@@ -2,8 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 
 /**
- * Reusable form component used by both AddBirthdayPage and EditBirthdayPage.
- * Includes live photo upload preview, date constraints, and field validation.
+ * =============================================================================
+ * COMPONENT: BirthdayForm
+ * =============================================================================
+ * This is a reusable form used for BOTH creating a new birthday (AddBirthdayPage)
+ * and updating an existing birthday (EditBirthdayPage).
+ * 
+ * Props explained:
+ * - initialData: If editing, this contains the existing birthday details to prefill.
+ * - onSubmit: The function called when the user clicks "Save Birthday".
+ * - isSubmitting: True while the network request is loading (disables button to prevent double-clicks).
+ * - submitButtonText: The text on the submit button ("Save Birthday" or "Update Birthday").
+ * - serverError: Any error message returned by the backend API.
  */
 const BirthdayForm = ({
   initialData = {},
@@ -12,84 +22,112 @@ const BirthdayForm = ({
   submitButtonText = 'Save Birthday',
   serverError = '',
 }) => {
-  // Format initial date to YYYY-MM-DD for <input type="date" />
-  const getFormattedDate = (dateVal) => {
-    if (!dateVal) return '';
-    const d = new Date(dateVal);
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${d.getFullYear()}-${month}-${day}`;
+
+  // ---------------------------------------------------------------------------
+  // HELPER: Convert date to "YYYY-MM-DD" for HTML <input type="date" />
+  // Standard HTML date inputs ONLY accept the "YYYY-MM-DD" string format.
+  // ---------------------------------------------------------------------------
+  const formatDateForInput = (rawDate) => {
+    if (!rawDate) return '';
+    const dateObj = new Date(rawDate);
+    const year = dateObj.getFullYear();
+    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const day = String(dateObj.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   };
 
+  // ---------------------------------------------------------------------------
+  // STEP 1: FORM STATE VARIABLES
+  // In React, inputs are "controlled components" - meaning their value is stored
+  // in React state and updated whenever the user types.
+  // ---------------------------------------------------------------------------
   const [personName, setPersonName] = useState(initialData.personName || '');
-  const [dateOfBirth, setDateOfBirth] = useState(getFormattedDate(initialData.dateOfBirth));
+  const [dateOfBirth, setDateOfBirth] = useState(formatDateForInput(initialData.dateOfBirth));
   const [relationship, setRelationship] = useState(initialData.relationship || 'Friend');
   const [notes, setNotes] = useState(initialData.notes || '');
   const [remindDaysBefore, setRemindDaysBefore] = useState(initialData.remindDaysBefore ?? 1);
-  const [photoFile, setPhotoFile] = useState(null);
-  const [previewUrl, setPreviewUrl] = useState(initialData.photoUrl || null);
-  const [validationError, setValidationError] = useState('');
+  const [photoFile, setPhotoFile] = useState(null); // The actual binary image File object
+  const [previewUrl, setPreviewUrl] = useState(initialData.photoUrl || null); // Temporary URL to show preview
+  const [validationError, setValidationError] = useState(''); // Client-side error message
 
-  // Update form if initialData arrives after fetch
+  // ---------------------------------------------------------------------------
+  // STEP 2: PREFILL FORM WHEN EDITING
+  // When editing, initialData might arrive a moment later after the API finishes loading.
+  // useEffect watches 'initialData' and fills the input fields as soon as it arrives!
+  // ---------------------------------------------------------------------------
   useEffect(() => {
     if (initialData.personName) setPersonName(initialData.personName);
-    if (initialData.dateOfBirth) setDateOfBirth(getFormattedDate(initialData.dateOfBirth));
+    if (initialData.dateOfBirth) setDateOfBirth(formatDateForInput(initialData.dateOfBirth));
     if (initialData.relationship) setRelationship(initialData.relationship);
     if (initialData.notes !== undefined) setNotes(initialData.notes || '');
     if (initialData.remindDaysBefore !== undefined) setRemindDaysBefore(initialData.remindDaysBefore);
     if (initialData.photoUrl) setPreviewUrl(initialData.photoUrl);
   }, [initialData]);
 
-  // Today's date in YYYY-MM-DD format to prevent future birth dates
+  // Today's date in YYYY-MM-DD (used to disable selecting future birth dates)
   const todayString = new Date().toISOString().split('T')[0];
 
-  // Handle image file selection and generate a local preview URL
-  const handlePhotoChange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+  // ---------------------------------------------------------------------------
+  // STEP 3: HANDLE PHOTO SELECTION & LIVE PREVIEW
+  // When a user selects a file from their computer, we check its size & type,
+  // then create a local preview URL so they see their picture instantly!
+  // ---------------------------------------------------------------------------
+  const handlePhotoChange = (event) => {
+    const selectedFile = event.target.files[0];
+    if (!selectedFile) return;
 
-    // Check file size (max 2 MB = 2 * 1024 * 1024 bytes)
+    // Rule 1: File size limit (2 MB = 2 * 1024 * 1024 bytes)
     const maxSizeBytes = 2 * 1024 * 1024;
-    if (file.size > maxSizeBytes) {
+    if (selectedFile.size > maxSizeBytes) {
       setValidationError('Photo size must be less than 2 MB.');
       return;
     }
 
-    // Check file extension
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
-    if (!allowedTypes.includes(file.type)) {
+    // Rule 2: Allowed image file extensions
+    const allowedImageTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowedImageTypes.includes(selectedFile.type)) {
       setValidationError('Only JPG, PNG, and WebP images are allowed.');
       return;
     }
 
+    // If checks pass, clear any old error, save the file, and create preview
     setValidationError('');
-    setPhotoFile(file);
-    // Create live preview object URL
-    setPreviewUrl(URL.createObjectURL(file));
+    setPhotoFile(selectedFile);
+
+    // URL.createObjectURL creates a temporary local URL (e.g. blob:http://...)
+    // that allows the browser to display the image immediately before uploading!
+    setPreviewUrl(URL.createObjectURL(selectedFile));
   };
 
-  // Form submission handler
-  const handleSubmit = (e) => {
-    e.preventDefault();
+  // ---------------------------------------------------------------------------
+  // STEP 4: FORM SUBMISSION & VALIDATION
+  // Validates user input before sending to backend.
+  // Uses FormData because regular JSON cannot carry binary photo files.
+  // ---------------------------------------------------------------------------
+  const handleSubmit = (event) => {
+    // Prevent standard browser page reload
+    event.preventDefault();
     setValidationError('');
 
-    // Client-side validations
+    // Check 1: Name must not be empty
     if (!personName.trim()) {
       setValidationError('Please enter a person name.');
       return;
     }
 
+    // Check 2: Date of birth must be selected
     if (!dateOfBirth) {
       setValidationError('Please select a date of birth.');
       return;
     }
 
+    // Check 3: Birth date cannot be in the future
     if (dateOfBirth > todayString) {
       setValidationError('Date of birth cannot be in the future.');
       return;
     }
 
-    // Package the form into a multipart/form-data object
+    // Package the form into standard FormData for file upload
     const formData = new FormData();
     formData.append('PersonName', personName.trim());
     formData.append('DateOfBirth', dateOfBirth);
@@ -97,20 +135,26 @@ const BirthdayForm = ({
     formData.append('Notes', notes.trim());
     formData.append('RemindDaysBefore', remindDaysBefore);
 
+    // If the user picked a new photo, attach it
     if (photoFile) {
       formData.append('Photo', photoFile);
     }
 
+    // Call the parent component's onSubmit function
     onSubmit(formData);
   };
 
+  // ---------------------------------------------------------------------------
+  // STEP 5: RENDER THE FORM UI
+  // ---------------------------------------------------------------------------
   return (
     <form onSubmit={handleSubmit} className="card" encType="multipart/form-data">
-      {/* Error alerts */}
+      
+      {/* Show Error Banners if something is wrong */}
       {validationError && <div className="alert alert-danger">{validationError}</div>}
       {serverError && <div className="alert alert-danger">{serverError}</div>}
 
-      {/* Person Name */}
+      {/* Field 1: Person Name */}
       <div className="form-group">
         <label className="form-label" htmlFor="personName">
           Person Name *
@@ -126,7 +170,7 @@ const BirthdayForm = ({
         />
       </div>
 
-      {/* Date of Birth */}
+      {/* Field 2: Date of Birth */}
       <div className="form-group">
         <label className="form-label" htmlFor="dateOfBirth">
           Date of Birth *
@@ -140,10 +184,10 @@ const BirthdayForm = ({
           onChange={(e) => setDateOfBirth(e.target.value)}
           required
         />
-        <span className="form-help">Enter their actual birth date. We calculate their age automatically!</span>
+        <span className="form-help">Enter their birth date. We calculate turning age and countdowns automatically!</span>
       </div>
 
-      {/* Relationship Dropdown */}
+      {/* Field 3: Relationship Category Dropdown */}
       <div className="form-group">
         <label className="form-label" htmlFor="relationship">
           Relationship *
@@ -161,7 +205,7 @@ const BirthdayForm = ({
         </select>
       </div>
 
-      {/* Remind Days Before */}
+      {/* Field 4: Reminder Advance Setting */}
       <div className="form-group">
         <label className="form-label" htmlFor="remindDaysBefore">
           Remind Me In Advance
@@ -180,7 +224,7 @@ const BirthdayForm = ({
         </select>
       </div>
 
-      {/* Photo Upload with Live Preview */}
+      {/* Field 5: Profile Photo Upload with Live Circular Preview */}
       <div className="form-group">
         <label className="form-label">Profile Photo (Optional)</label>
         <div className="photo-upload-area">
@@ -207,7 +251,7 @@ const BirthdayForm = ({
         </div>
       </div>
 
-      {/* Notes */}
+      {/* Field 6: Notes & Gift Ideas */}
       <div className="form-group">
         <label className="form-label" htmlFor="notes">
           Notes & Gift Ideas (Optional)
@@ -222,7 +266,7 @@ const BirthdayForm = ({
         />
       </div>
 
-      {/* Buttons */}
+      {/* Form Action Buttons: Submit & Cancel */}
       <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
         <button
           type="submit"
@@ -236,6 +280,7 @@ const BirthdayForm = ({
           Cancel
         </Link>
       </div>
+
     </form>
   );
 };

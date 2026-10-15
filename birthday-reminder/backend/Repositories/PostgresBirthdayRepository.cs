@@ -4,24 +4,28 @@ using Microsoft.EntityFrameworkCore;
 
 namespace backend.Repositories;
 
-/// <summary>
-/// PostgreSQL implementation of IBirthdayRepository using Entity Framework Core.
-/// 
-/// Handles CRUD operations (Create, Read, Update, Delete) against the PostgreSQL "Birthdays" table.
-/// </summary>
+/**
+ * =============================================================================
+ * REPOSITORY: PostgresBirthdayRepository
+ * =============================================================================
+ * Implements IBirthdayRepository using Entity Framework Core (EF Core).
+ * 
+ * How EF Core works:
+ * - We write pure C# LINQ methods: `.Where()`, `.OrderBy()`, `.FirstOrDefaultAsync()`.
+ * - EF Core automatically converts our C# into SQL commands and runs them in PostgreSQL!
+ */
 public class PostgresBirthdayRepository : IBirthdayRepository
 {
     private readonly AppDbContext _context;
 
+    // AppDbContext is provided automatically by ASP.NET Core Dependency Injection
     public PostgresBirthdayRepository(AppDbContext context)
     {
         _context = context;
     }
 
     /// <summary>
-    /// Gets all birthdays belonging to a specific logged-in user.
-    /// Results are sorted alphabetically by person name.
-    /// 
+    /// 1. READ ALL FOR USER
     /// SQL equivalent:
     ///   SELECT * FROM "Birthdays" WHERE "UserId" = @userId ORDER BY "PersonName";
     /// </summary>
@@ -34,8 +38,7 @@ public class PostgresBirthdayRepository : IBirthdayRepository
     }
 
     /// <summary>
-    /// Finds a single birthday record by its unique database ID.
-    /// 
+    /// 2. READ BY ID
     /// SQL equivalent:
     ///   SELECT * FROM "Birthdays" WHERE "Id" = @id LIMIT 1;
     /// </summary>
@@ -46,12 +49,9 @@ public class PostgresBirthdayRepository : IBirthdayRepository
     }
 
     /// <summary>
-    /// Inserts a new birthday record into the PostgreSQL database.
-    /// 
-    /// How it works:
-    /// 1. '_context.Birthdays.Add(birthday)' queues the new birthday for insertion.
-    /// 2. 'SaveChangesAsync()' generates: INSERT INTO "Birthdays" (...) VALUES (...);
-    /// 3. PostgreSQL generates the unique Id, and EF Core updates 'birthday.Id'.
+    /// 3. CREATE
+    /// SQL equivalent:
+    ///   INSERT INTO "Birthdays" (...) VALUES (...);
     /// </summary>
     public async Task<Birthday> CreateAsync(Birthday birthday)
     {
@@ -61,13 +61,9 @@ public class PostgresBirthdayRepository : IBirthdayRepository
     }
 
     /// <summary>
-    /// Updates the details of an existing birthday in PostgreSQL.
-    /// 
-    /// How it works:
-    /// 1. Finds the existing record in the database.
-    /// 2. If found, updates its properties with the new values.
-    /// 3. Calling 'SaveChangesAsync()' generates an UPDATE SQL statement:
-    ///    UPDATE "Birthdays" SET "PersonName" = ..., "DateOfBirth" = ... WHERE "Id" = @id;
+    /// 4. UPDATE
+    /// SQL equivalent:
+    ///   UPDATE "Birthdays" SET "PersonName" = ..., ... WHERE "Id" = @id;
     /// </summary>
     public async Task<Birthday?> UpdateAsync(Birthday birthday)
     {
@@ -79,7 +75,7 @@ public class PostgresBirthdayRepository : IBirthdayRepository
             return null; // Record not found
         }
 
-        // Copy updated values over to the tracked entity
+        // Copy modified values over to the tracked database entity
         existing.PersonName = birthday.PersonName;
         existing.DateOfBirth = birthday.DateOfBirth;
         existing.Relationship = birthday.Relationship;
@@ -87,14 +83,13 @@ public class PostgresBirthdayRepository : IBirthdayRepository
         existing.PhotoFileName = birthday.PhotoFileName;
         existing.RemindDaysBefore = birthday.RemindDaysBefore;
 
-        // Persist modifications to PostgreSQL
+        // Commit changes to PostgreSQL
         await _context.SaveChangesAsync();
         return existing;
     }
 
     /// <summary>
-    /// Deletes a birthday record by its unique database ID.
-    /// 
+    /// 5. DELETE
     /// SQL equivalent:
     ///   DELETE FROM "Birthdays" WHERE "Id" = @id;
     /// </summary>
@@ -105,7 +100,7 @@ public class PostgresBirthdayRepository : IBirthdayRepository
 
         if (existing == null)
         {
-            return false; // Record not found
+            return false;
         }
 
         _context.Birthdays.Remove(existing);
@@ -114,9 +109,8 @@ public class PostgresBirthdayRepository : IBirthdayRepository
     }
 
     /// <summary>
-    /// Gets all birthdays across all users in the system.
-    /// Used exclusively by 'ReminderBackgroundService' to check which birthdays are approaching today/tomorrow.
-    /// 
+    /// 6. READ ALL (SYSTEM-WIDE)
+    /// Used by ReminderBackgroundService to calculate upcoming alert notifications.
     /// SQL equivalent:
     ///   SELECT * FROM "Birthdays";
     /// </summary>
@@ -125,3 +119,4 @@ public class PostgresBirthdayRepository : IBirthdayRepository
         return await _context.Birthdays.ToListAsync();
     }
 }
+
