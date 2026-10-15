@@ -1,3 +1,5 @@
+using backend.DTOs;
+
 namespace backend.Services;
 
 /**
@@ -7,25 +9,32 @@ namespace backend.Services;
  * Blueprint for sending email notifications in our application.
  * 
  * Why use an interface for email?
- * 1. Flexibility: We can swap between local development logging, SMTP (Gmail/Outlook),
- *    SendGrid, or Amazon SES without changing any controller code!
+ * 1. Flexibility: We can swap between local development console logging, SMTP
+ *    (Gmail/Outlook), SendGrid, or Amazon SES without changing any controller code!
  * 2. Testability: Easy to test login and reminder flows.
  */
 public interface IEmailService
 {
     /// <summary>
-    /// Sends a security notification email whenever a user logs into their account.
+    /// Sends a sign-in / login notification email to the user who just logged in.
+    /// Automatically includes a list of upcoming birthdays so the user is immediately reminded!
     /// </summary>
-    /// <param name="toEmail">The user's registered email address.</param>
-    /// <param name="userName">The user's full name.</param>
-    /// <param name="loginTime">The date and time of the login event.</param>
-    Task SendLoginNotificationAsync(string toEmail, string userName, DateTime loginTime);
+    Task SendLoginNotificationAsync(string toEmail, string userName, DateTime loginTime, List<UpcomingBirthdayReminder>? upcomingBirthdays = null);
+
+    /// <summary>
+    /// Sends a friendly welcome email when a user registers a new account.
+    /// </summary>
+    Task SendWelcomeEmailAsync(string toEmail, string userName);
+
+    /// <summary>
+    /// Sends an upcoming birthday reminder alert for a specific friend or family member.
+    /// (Used by the background worker service).
+    /// </summary>
+    Task SendBirthdayReminderAlertAsync(string toEmail, string userName, string personName, string relationship, int turningAge, int daysUntil, DateTime dateOfBirth, string? notes);
 
     /// <summary>
     /// Generic method to send an HTML email with a custom subject and body.
     /// </summary>
-    /// <param name="toEmail">Recipient's email address.</param>
-    /// <param name="subject">Email subject line.</param>
-    /// <param name="bodyHtml">Email content in HTML format.</param>
     Task SendEmailAsync(string toEmail, string subject, string bodyHtml);
 }
+

@@ -106,31 +106,18 @@ public class ReminderBackgroundService : BackgroundService
                     User? owner = await userRepository.GetByIdAsync(birthday.UserId);
                     if (owner != null && !string.IsNullOrWhiteSpace(owner.Email))
                     {
-                        string emailSubject = daysUntil == 0
-                            ? $"🎉 Today is {birthday.PersonName}'s Birthday!"
-                            : $"🎂 Reminder: {birthday.PersonName}'s Birthday is in {daysUntil} day(s)!";
-
-                        string emailHtml = $@"
-<div style=""font-family: Arial, sans-serif; max-width: 580px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px;"">
-  <h2 style=""color: #6366F1; margin-top: 0;"">🎂 Birthday Reminder Alert</h2>
-  <p>Hi <strong>{owner.Name}</strong>,</p>
-  <p>Don't forget to celebrate!</p>
-  <div style=""background-color: #f1f5f9; padding: 16px; border-radius: 8px; margin: 16px 0;"">
-    <p style=""margin: 4px 0; font-size: 16px;""><strong>Name:</strong> {birthday.PersonName}</p>
-    <p style=""margin: 4px 0;""><strong>Relationship:</strong> {birthday.Relationship}</p>
-    <p style=""margin: 4px 0;""><strong>Turning Age:</strong> {turningAge}</p>
-    <p style=""margin: 4px 0;""><strong>When:</strong> {(daysUntil == 0 ? "TODAY! 🎉" : $"In {daysUntil} days")}</p>
-    {(string.IsNullOrWhiteSpace(birthday.Notes) ? "" : $"<p style=\"margin: 4px 0;\"><strong>Notes:</strong> {birthday.Notes}</p>")}
-  </div>
-  <p style=""color: #64748b; font-size: 13px;"">Birthday Reminder App &bull; Automated notification</p>
-</div>";
-
-                        await emailService.SendEmailAsync(owner.Email, emailSubject, emailHtml);
+                        await emailService.SendBirthdayReminderAlertAsync(
+                            owner.Email,
+                            owner.Name,
+                            birthday.PersonName,
+                            birthday.Relationship,
+                            turningAge,
+                            daysUntil,
+                            birthday.DateOfBirth,
+                            birthday.Notes);
                     }
                 }
             }
         }
     }
 }
-
-
