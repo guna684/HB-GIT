@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 
 // =============================================================================
@@ -83,6 +83,11 @@ const BirthdayCard = ({ birthday, onDelete }) => {
   // We use React state to track if the photo failed to load.
   // If it fails (broken link or file not found), we smoothly show the initials instead!
   const [imageFailedToLoad, setImageFailedToLoad] = useState(false);
+
+  // Reset fallback state if the photo URL updates (e.g. after editing)
+  useEffect(() => {
+    setImageFailedToLoad(false);
+  }, [birthday.photoUrl]);
 
   // ---------------------------------------------------------------------------
   // STEP 1: Calculate countdown text and badge color

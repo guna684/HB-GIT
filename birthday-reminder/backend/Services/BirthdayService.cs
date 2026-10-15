@@ -140,8 +140,16 @@ public class BirthdayService
             return null;
         }
 
-        // 2. If a new photo was uploaded, delete the old photo file to save disk space
-        if (request.Photo != null && request.Photo.Length > 0)
+        // 2. Handle photo updates: remove photo or replace with newly uploaded photo
+        if (request.RemovePhoto)
+        {
+            if (!string.IsNullOrEmpty(existing.PhotoFileName))
+            {
+                DeletePhotoFile(existing.PhotoFileName);
+            }
+            existing.PhotoFileName = null;
+        }
+        else if (request.Photo != null && request.Photo.Length > 0)
         {
             if (!string.IsNullOrEmpty(existing.PhotoFileName))
             {
@@ -284,8 +292,16 @@ public class BirthdayService
         string? fullPhotoUrl = null;
         if (!string.IsNullOrEmpty(item.PhotoFileName))
         {
-            // Turn "guid.jpg" into "http://localhost:5000/uploads/guid.jpg"
-            fullPhotoUrl = $"{baseUrl.TrimEnd('/')}/uploads/{item.PhotoFileName}";
+            if (item.PhotoFileName.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+                item.PhotoFileName.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            {
+                fullPhotoUrl = item.PhotoFileName;
+            }
+            else
+            {
+                // Turn "guid.jpg" into "http://localhost:5000/uploads/guid.jpg"
+                fullPhotoUrl = $"{baseUrl.TrimEnd('/')}/uploads/{item.PhotoFileName}";
+            }
         }
 
         return new BirthdayResponse

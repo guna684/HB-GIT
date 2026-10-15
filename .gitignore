@@ -4,6 +4,7 @@
 **/[Bb]in/
 **/[Oo]bj/
 **/temp_build/
+**/build_test/
 *.user
 *.suo
 .vs/

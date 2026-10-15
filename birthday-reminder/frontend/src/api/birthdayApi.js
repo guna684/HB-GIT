@@ -44,11 +44,9 @@ export const getBirthdayById = async (id) => {
  * Creates a new birthday record. Accepts FormData containing person details and optional photo.
  */
 export const createBirthday = async (formData) => {
-  const response = await axiosClient.post('/birthdays', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  });
+  // Note for Beginners: Do NOT manually set 'Content-Type': 'multipart/form-data'!
+  // Axios and the browser automatically set the correct header WITH the unique boundary string.
+  const response = await axiosClient.post('/birthdays', formData);
   return response.data;
 };
 
@@ -57,11 +55,7 @@ export const createBirthday = async (formData) => {
  * Updates an existing birthday record by ID.
  */
 export const updateBirthday = async (id, formData) => {
-  const response = await axiosClient.put(`/birthdays/${id}`, formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  });
+  const response = await axiosClient.put(`/birthdays/${id}`, formData);
   return response.data;
 };
 

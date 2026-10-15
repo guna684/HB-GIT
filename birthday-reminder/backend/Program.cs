@@ -252,11 +252,11 @@ if (app.Environment.IsDevelopment())
     });
 }
 
+// Apply CORS policy for the React app (MUST be before UseStaticFiles so image requests include CORS headers)
+app.UseCors("AllowReactApp");
+
 // Serve uploaded profile photos (e.g. http://localhost:5000/uploads/guid.jpg)
 app.UseStaticFiles();
-
-// Apply CORS policy for the React app
-app.UseCors("AllowReactApp");
 
 // Authentication verifies WHO you are (checks JWT token)
 app.UseAuthentication();

@@ -60,5 +60,8 @@ public class BirthdayRequest
 
     // The optional binary image file sent from <input type="file" />
     public IFormFile? Photo { get; set; }
+
+    // If true, removes the current photo without uploading a replacement
+    public bool RemovePhoto { get; set; } = false;
 }
 

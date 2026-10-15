@@ -48,6 +48,7 @@ const BirthdayForm = ({
   const [remindDaysBefore, setRemindDaysBefore] = useState(initialData.remindDaysBefore ?? 1);
   const [photoFile, setPhotoFile] = useState(null); // The actual binary image File object
   const [previewUrl, setPreviewUrl] = useState(initialData.photoUrl || null); // Temporary URL to show preview
+  const [removePhoto, setRemovePhoto] = useState(false); // Flag to remove photo on edit
   const [validationError, setValidationError] = useState(''); // Client-side error message
 
   // ---------------------------------------------------------------------------
@@ -63,6 +64,15 @@ const BirthdayForm = ({
     if (initialData.remindDaysBefore !== undefined) setRemindDaysBefore(initialData.remindDaysBefore);
     if (initialData.photoUrl) setPreviewUrl(initialData.photoUrl);
   }, [initialData]);
+
+  // Clean up object URLs to prevent browser memory leaks
+  useEffect(() => {
+    return () => {
+      if (previewUrl && previewUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
 
   // Today's date in YYYY-MM-DD (used to disable selecting future birth dates)
   const todayString = new Date().toISOString().split('T')[0];
@@ -80,23 +90,45 @@ const BirthdayForm = ({
     const maxSizeBytes = 2 * 1024 * 1024;
     if (selectedFile.size > maxSizeBytes) {
       setValidationError('Photo size must be less than 2 MB.');
+      event.target.value = '';
       return;
     }
 
-    // Rule 2: Allowed image file extensions
-    const allowedImageTypes = ['image/jpeg', 'image/png', 'image/webp'];
-    if (!allowedImageTypes.includes(selectedFile.type)) {
+    // Rule 2: Allowed image extensions (.jpg, .jpeg, .png, .webp)
+    const extension = selectedFile.name.split('.').pop()?.toLowerCase();
+    const allowedExtensions = ['jpg', 'jpeg', 'png', 'webp'];
+    const allowedMimeTypes = ['image/jpeg', 'image/pjpeg', 'image/png', 'image/webp'];
+
+    const isExtensionValid = allowedExtensions.includes(extension);
+    const isMimeValid = !selectedFile.type || allowedMimeTypes.includes(selectedFile.type.toLowerCase());
+
+    if (!isExtensionValid && !isMimeValid) {
       setValidationError('Only JPG, PNG, and WebP images are allowed.');
+      event.target.value = '';
       return;
     }
 
-    // If checks pass, clear any old error, save the file, and create preview
+    // If checks pass, clear any previous error and revoke previous blob preview
     setValidationError('');
-    setPhotoFile(selectedFile);
+    if (previewUrl && previewUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(previewUrl);
+    }
 
-    // URL.createObjectURL creates a temporary local URL (e.g. blob:http://...)
-    // that allows the browser to display the image immediately before uploading!
+    setRemovePhoto(false);
+    setPhotoFile(selectedFile);
     setPreviewUrl(URL.createObjectURL(selectedFile));
+
+    // Reset input value so selecting the same file again triggers onChange
+    event.target.value = '';
+  };
+
+  const handleRemovePhoto = () => {
+    if (previewUrl && previewUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(previewUrl);
+    }
+    setPhotoFile(null);
+    setPreviewUrl(null);
+    setRemovePhoto(true);
   };
 
   // ---------------------------------------------------------------------------
@@ -138,6 +170,8 @@ const BirthdayForm = ({
     // If the user picked a new photo, attach it
     if (photoFile) {
       formData.append('Photo', photoFile);
+    } else if (removePhoto) {
+      formData.append('RemovePhoto', 'true');
     }
 
     // Call the parent component's onSubmit function
@@ -236,9 +270,21 @@ const BirthdayForm = ({
             )}
           </div>
           <div className="photo-upload-controls">
-            <label htmlFor="photoFileInput" className="btn btn-secondary" style={{ cursor: 'pointer' }}>
-              {previewUrl ? 'Change Photo' : 'Choose Photo'}
-            </label>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <label htmlFor="photoFileInput" className="btn btn-secondary" style={{ cursor: 'pointer', margin: 0 }}>
+                {previewUrl ? 'Change Photo' : 'Choose Photo'}
+              </label>
+              {previewUrl && (
+                <button
+                  type="button"
+                  className="btn btn-outline"
+                  onClick={handleRemovePhoto}
+                  style={{ color: '#ef4444', borderColor: '#fca5a5' }}
+                >
+                  Remove Photo
+                </button>
+              )}
+            </div>
             <input
               id="photoFileInput"
               type="file"
