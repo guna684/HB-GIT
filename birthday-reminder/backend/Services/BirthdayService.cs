@@ -22,18 +22,14 @@ namespace backend.Services;
 public class BirthdayService
 {
     private readonly IBirthdayRepository _birthdayRepository;
-    private readonly IWebHostEnvironment _environment;
 
-    // Allowed image file extensions for profile pictures
-    private static readonly string[] AllowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp" };
+    // Maximum file upload size: 500 Kilobytes (500 * 1024 bytes)
+    // Kept under 500 KB to keep PostgreSQL database backups and queries fast!
+    private const long MaxFileSizeBytes = 500 * 1024;
 
-    // Maximum file upload size: 2 Megabytes (2 * 1024 * 1024 bytes)
-    private const long MaxFileSizeBytes = 2 * 1024 * 1024;
-
-    public BirthdayService(IBirthdayRepository birthdayRepository, IWebHostEnvironment environment)
+    public BirthdayService(IBirthdayRepository birthdayRepository)
     {
         _birthdayRepository = birthdayRepository;
-        _environment = environment;
     }
 
     /// <summary>
@@ -97,17 +93,43 @@ public class BirthdayService
     }
 
     /// <summary>
-    /// 4. CREATE BIRTHDAY
-    /// Saves a new birthday and processes an optional photo upload.
+    /// 4. GET PHOTO BY BIRTHDAY ID
+    /// Returns the binary photo bytes and MIME content type from PostgreSQL BYTEA.
+    /// Returns null if the birthday doesn't exist, doesn't belong to the user, or has no photo.
+    /// </summary>
+    public async Task<(byte[] photoBytes, string contentType)?> GetPhotoForUserAsync(int id, int userId)
+    {
+        Birthday? item = await _birthdayRepository.GetByIdAsync(id);
+        if (item == null || item.UserId != userId)
+        {
+            return null;
+        }
+
+        if (item.PhotoData == null || item.PhotoData.Length == 0)
+        {
+            return null;
+        }
+
+        string contentType = string.IsNullOrWhiteSpace(item.PhotoContentType)
+            ? "image/jpeg"
+            : item.PhotoContentType;
+
+        return (item.PhotoData, contentType);
+    }
+
+    /// <summary>
+    /// 5. CREATE BIRTHDAY
+    /// Saves a new birthday with optional photo bytes stored directly in PostgreSQL BYTEA.
     /// </summary>
     public async Task<BirthdayResponse> CreateForUserAsync(int userId, BirthdayRequest request, string baseUrl)
     {
-        string? photoFileName = null;
+        byte[]? photoBytes = null;
+        string? contentType = null;
 
-        // If the user uploaded a photo file, validate and save it to disk
+        // If the user uploaded a photo file, validate size and read bytes into memory
         if (request.Photo != null && request.Photo.Length > 0)
         {
-            photoFileName = await SavePhotoAsync(request.Photo);
+            (photoBytes, contentType) = await ConvertPhotoToBytesAsync(request.Photo);
         }
 
         // Construct the database model
@@ -119,7 +141,8 @@ public class BirthdayService
             Relationship = request.Relationship,
             Notes = request.Notes?.Trim(),
             RemindDaysBefore = request.RemindDaysBefore,
-            PhotoFileName = photoFileName
+            PhotoData = photoBytes,
+            PhotoContentType = contentType
         };
 
         // Save to repository (assigns a unique ID)
@@ -128,8 +151,8 @@ public class BirthdayService
     }
 
     /// <summary>
-    /// 5. UPDATE BIRTHDAY
-    /// Updates an existing birthday. If a new photo is uploaded, deletes the old one.
+    /// 6. UPDATE BIRTHDAY
+    /// Updates an existing birthday. If a new photo is uploaded, replaces photo bytes in database.
     /// </summary>
     public async Task<BirthdayResponse?> UpdateForUserAsync(int id, int userId, BirthdayRequest request, string baseUrl)
     {
@@ -140,22 +163,17 @@ public class BirthdayService
             return null;
         }
 
-        // 2. Handle photo updates: remove photo or replace with newly uploaded photo
+        // 2. Handle photo updates: remove photo or replace with newly uploaded photo bytes
         if (request.RemovePhoto)
         {
-            if (!string.IsNullOrEmpty(existing.PhotoFileName))
-            {
-                DeletePhotoFile(existing.PhotoFileName);
-            }
-            existing.PhotoFileName = null;
+            existing.PhotoData = null;
+            existing.PhotoContentType = null;
         }
         else if (request.Photo != null && request.Photo.Length > 0)
         {
-            if (!string.IsNullOrEmpty(existing.PhotoFileName))
-            {
-                DeletePhotoFile(existing.PhotoFileName);
-            }
-            existing.PhotoFileName = await SavePhotoAsync(request.Photo);
+            (byte[] photoBytes, string contentType) = await ConvertPhotoToBytesAsync(request.Photo);
+            existing.PhotoData = photoBytes;
+            existing.PhotoContentType = contentType;
         }
 
         // 3. Update fields with new values
@@ -176,8 +194,8 @@ public class BirthdayService
     }
 
     /// <summary>
-    /// 6. DELETE BIRTHDAY
-    /// Deletes a birthday record and removes its uploaded photo file from disk.
+    /// 7. DELETE BIRTHDAY
+    /// Deletes a birthday record. The photo bytes inside PostgreSQL are removed automatically!
     /// </summary>
     public async Task<bool> DeleteForUserAsync(int id, int userId)
     {
@@ -188,13 +206,7 @@ public class BirthdayService
             return false;
         }
 
-        // 2. Delete photo file from disk if present
-        if (!string.IsNullOrEmpty(existing.PhotoFileName))
-        {
-            DeletePhotoFile(existing.PhotoFileName);
-        }
-
-        // 3. Delete from repository
+        // 2. Delete from repository (deleting row automatically deletes the BYTEA photo column)
         return await _birthdayRepository.DeleteAsync(id);
     }
 
@@ -203,106 +215,54 @@ public class BirthdayService
     // =========================================================================
 
     /// <summary>
-    /// Validates and saves an uploaded photo to wwwroot/uploads with a unique GUID name.
+    /// Validates photo size and extension, then converts the uploaded file into a byte array for PostgreSQL BYTEA storage.
     /// </summary>
-    private async Task<string> SavePhotoAsync(IFormFile file)
+    private static async Task<(byte[] photoBytes, string contentType)> ConvertPhotoToBytesAsync(IFormFile file)
     {
-        // Check 1: File size limit (2 MB)
+        // Check 1: File size limit (500 KB)
         if (file.Length > MaxFileSizeBytes)
         {
-            throw new ArgumentException("Photo file size cannot exceed 2 MB.");
+            throw new ArgumentException("Photo file size cannot exceed 500 KB.");
         }
 
-        // Check 2: File extension check (.jpg, .jpeg, .png, .webp)
+        // Check 2: Extension check (.jpg, .jpeg, .png, .webp)
         string extension = Path.GetExtension(file.FileName).ToLowerInvariant();
-        bool isAllowed = false;
-        foreach (string allowed in AllowedExtensions)
-        {
-            if (allowed == extension)
-            {
-                isAllowed = true;
-                break;
-            }
-        }
-
+        bool isAllowed = extension == ".jpg" || extension == ".jpeg" || extension == ".png" || extension == ".webp";
         if (!isAllowed)
         {
             throw new ArgumentException("Only .jpg, .jpeg, .png, and .webp images are allowed.");
         }
 
-        // Determine destination folder (wwwroot/uploads)
-        string webRootPath = _environment.WebRootPath;
-        if (string.IsNullOrEmpty(webRootPath))
+        // Check 3: Content type (fallback based on extension if browser didn't supply one)
+        string contentType = file.ContentType;
+        if (string.IsNullOrWhiteSpace(contentType) || contentType == "application/octet-stream")
         {
-            webRootPath = Path.Combine(_environment.ContentRootPath, "wwwroot");
-        }
-
-        string uploadsFolder = Path.Combine(webRootPath, "uploads");
-        if (!Directory.Exists(uploadsFolder))
-        {
-            Directory.CreateDirectory(uploadsFolder);
-        }
-
-        // Generate unique GUID filename so two photos named "image.jpg" never overwrite each other!
-        string uniqueFileName = $"{Guid.NewGuid()}{extension}";
-        string fullFilePath = Path.Combine(uploadsFolder, uniqueFileName);
-
-        // Copy file stream to disk
-        using (FileStream stream = new(fullFilePath, FileMode.Create))
-        {
-            await file.CopyToAsync(stream);
-        }
-
-        return uniqueFileName;
-    }
-
-    /// <summary>
-    /// Safely deletes a photo file from wwwroot/uploads if it exists.
-    /// </summary>
-    private void DeletePhotoFile(string fileName)
-    {
-        string webRootPath = _environment.WebRootPath;
-        if (string.IsNullOrEmpty(webRootPath))
-        {
-            webRootPath = Path.Combine(_environment.ContentRootPath, "wwwroot");
-        }
-
-        string fullFilePath = Path.Combine(webRootPath, "uploads", fileName);
-        if (File.Exists(fullFilePath))
-        {
-            try
+            contentType = extension switch
             {
-                File.Delete(fullFilePath);
-            }
-            catch
-            {
-                // Silently ignore if file is locked or already removed
-            }
+                ".png" => "image/png",
+                ".webp" => "image/webp",
+                _ => "image/jpeg"
+            };
         }
+
+        // Read file bytes into memory
+        using MemoryStream memoryStream = new();
+        await file.CopyToAsync(memoryStream);
+        byte[] photoBytes = memoryStream.ToArray();
+
+        return (photoBytes, contentType);
     }
 
     /// <summary>
     /// Maps a database Birthday entity to a client-friendly BirthdayResponse DTO.
-    /// Calculates DaysUntilBirthday, TurningAge, and the full PhotoUrl.
+    /// Calculates DaysUntilBirthday, TurningAge, HasPhoto boolean, and PhotoUrl endpoint.
     /// </summary>
     private static BirthdayResponse MapToResponse(Birthday item, string baseUrl)
     {
         (int daysUntil, int turningAge) = CalculateBirthdayStats(item.DateOfBirth, DateTime.Today);
 
-        string? fullPhotoUrl = null;
-        if (!string.IsNullOrEmpty(item.PhotoFileName))
-        {
-            if (item.PhotoFileName.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
-                item.PhotoFileName.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
-            {
-                fullPhotoUrl = item.PhotoFileName;
-            }
-            else
-            {
-                // Turn "guid.jpg" into "http://localhost:5000/uploads/guid.jpg"
-                fullPhotoUrl = $"{baseUrl.TrimEnd('/')}/uploads/{item.PhotoFileName}";
-            }
-        }
+        bool hasPhoto = item.PhotoData != null && item.PhotoData.Length > 0;
+        string? photoUrl = hasPhoto ? $"{baseUrl.TrimEnd('/')}/api/birthdays/{item.Id}/photo" : null;
 
         return new BirthdayResponse
         {
@@ -311,7 +271,8 @@ public class BirthdayService
             DateOfBirth = item.DateOfBirth,
             Relationship = item.Relationship,
             Notes = item.Notes,
-            PhotoUrl = fullPhotoUrl,
+            HasPhoto = hasPhoto,
+            PhotoUrl = photoUrl,
             DaysUntilBirthday = daysUntil,
             TurningAge = turningAge,
             RemindDaysBefore = item.RemindDaysBefore

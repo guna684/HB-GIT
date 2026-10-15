@@ -98,9 +98,13 @@ public class AppDbContext : DbContext
             entity.Property(b => b.Notes)
                   .HasMaxLength(1000);
 
-            // PhotoFileName: Name of image saved in wwwroot/uploads (e.g. "guid.jpg")
-            entity.Property(b => b.PhotoFileName)
-                  .HasMaxLength(300);
+            // PhotoData: Store binary photo bytes in PostgreSQL using the BYTEA type
+            entity.Property(b => b.PhotoData)
+                  .HasColumnType("bytea");
+
+            // PhotoContentType: MIME type of the uploaded photo (e.g. "image/jpeg", up to 50 chars)
+            entity.Property(b => b.PhotoContentType)
+                  .HasMaxLength(50);
 
             // RemindDaysBefore: Default reminder is 1 day before the birthday
             entity.Property(b => b.RemindDaysBefore)

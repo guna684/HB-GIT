@@ -433,3 +433,5 @@ E:\d\HB\birthday-reminder\backend\build_test\ru\Microsoft.CodeAnalysis.Workspace
 E:\d\HB\birthday-reminder\backend\build_test\tr\Microsoft.CodeAnalysis.Workspaces.resources.dll
 E:\d\HB\birthday-reminder\backend\build_test\zh-Hans\Microsoft.CodeAnalysis.Workspaces.resources.dll
 E:\d\HB\birthday-reminder\backend\build_test\zh-Hant\Microsoft.CodeAnalysis.Workspaces.resources.dll
+E:\d\HB\birthday-reminder\backend\bin\Debug\net8.0\build_test\backend.deps.json
+E:\d\HB\birthday-reminder\backend\bin\Debug\net8.0\build_test\backend.runtimeconfig.json

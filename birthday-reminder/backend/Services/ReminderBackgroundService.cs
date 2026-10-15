@@ -25,6 +25,11 @@ public class ReminderBackgroundService : BackgroundService
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<ReminderBackgroundService> _logger;
 
+    // Cache of reminder alert keys sent today to prevent spamming notifications every hour.
+    // Key format: "{birthdayId}_{date:yyyy-MM-dd}"
+    private readonly HashSet<string> _sentAlertKeys = new();
+    private DateTime _lastCleanupDate = DateTime.Today;
+
     public ReminderBackgroundService(
         IServiceProvider serviceProvider,
         ILogger<ReminderBackgroundService> logger)
@@ -63,6 +68,7 @@ public class ReminderBackgroundService : BackgroundService
     /// <summary>
     /// Inspects all birthdays in the database to see if any occur today or within
     /// their configured reminder threshold (e.g. 1 day before).
+    /// Prevents repeated notifications within the same calendar day.
     /// </summary>
     private async Task CheckBirthdaysAsync()
     {
@@ -79,6 +85,13 @@ public class ReminderBackgroundService : BackgroundService
             List<Birthday> allBirthdays = await birthdayRepository.GetAllAsync();
             DateTime today = DateTime.Today;
 
+            // Reset cache when a new calendar day arrives
+            if (today > _lastCleanupDate)
+            {
+                _sentAlertKeys.Clear();
+                _lastCleanupDate = today;
+            }
+
             foreach (Birthday birthday in allBirthdays)
             {
                 (int daysUntil, int turningAge) = BirthdayService.CalculateBirthdayStats(birthday.DateOfBirth, today);
@@ -86,6 +99,13 @@ public class ReminderBackgroundService : BackgroundService
                 // Check if the upcoming birthday is within the user's alert window
                 if (daysUntil <= birthday.RemindDaysBefore)
                 {
+                    // Check if an alert was already delivered for this birthday today
+                    string alertKey = $"{birthday.Id}_{today:yyyy-MM-dd}";
+                    if (_sentAlertKeys.Contains(alertKey))
+                    {
+                        continue;
+                    }
+
                     string message;
                     if (daysUntil == 0)
                     {
@@ -116,6 +136,9 @@ public class ReminderBackgroundService : BackgroundService
                             birthday.DateOfBirth,
                             birthday.Notes);
                     }
+
+                    // Mark as sent for today
+                    _sentAlertKeys.Add(alertKey);
                 }
             }
         }

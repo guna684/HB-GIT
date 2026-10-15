@@ -80,7 +80,8 @@ public class PostgresBirthdayRepository : IBirthdayRepository
         existing.DateOfBirth = birthday.DateOfBirth;
         existing.Relationship = birthday.Relationship;
         existing.Notes = birthday.Notes;
-        existing.PhotoFileName = birthday.PhotoFileName;
+        existing.PhotoData = birthday.PhotoData;
+        existing.PhotoContentType = birthday.PhotoContentType;
         existing.RemindDaysBefore = birthday.RemindDaysBefore;
 
         // Commit changes to PostgreSQL

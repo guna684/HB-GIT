@@ -1,19 +1,33 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import axiosClient from '../api/axiosClient';
+
+// ---------------------------------------------------------------------------
+// HELPER FUNCTIONS (Pure functions outside component)
+// ---------------------------------------------------------------------------
+const formatDateForInput = (rawDate) => {
+  if (!rawDate) return '';
+  const dateObj = new Date(rawDate);
+  const year = dateObj.getFullYear();
+  const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+  const day = String(dateObj.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const getTodayDateString = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 /**
  * =============================================================================
  * COMPONENT: BirthdayForm
  * =============================================================================
- * This is a reusable form used for BOTH creating a new birthday (AddBirthdayPage)
+ * Reusable form used for BOTH creating a new birthday (AddBirthdayPage)
  * and updating an existing birthday (EditBirthdayPage).
- * 
- * Props explained:
- * - initialData: If editing, this contains the existing birthday details to prefill.
- * - onSubmit: The function called when the user clicks "Save Birthday".
- * - isSubmitting: True while the network request is loading (disables button to prevent double-clicks).
- * - submitButtonText: The text on the submit button ("Save Birthday" or "Update Birthday").
- * - serverError: Any error message returned by the backend API.
  */
 const BirthdayForm = ({
   initialData = {},
@@ -22,24 +36,9 @@ const BirthdayForm = ({
   submitButtonText = 'Save Birthday',
   serverError = '',
 }) => {
-
-  // ---------------------------------------------------------------------------
-  // HELPER: Convert date to "YYYY-MM-DD" for HTML <input type="date" />
-  // Standard HTML date inputs ONLY accept the "YYYY-MM-DD" string format.
-  // ---------------------------------------------------------------------------
-  const formatDateForInput = (rawDate) => {
-    if (!rawDate) return '';
-    const dateObj = new Date(rawDate);
-    const year = dateObj.getFullYear();
-    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-    const day = String(dateObj.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
-
   // ---------------------------------------------------------------------------
   // STEP 1: FORM STATE VARIABLES
-  // In React, inputs are "controlled components" - meaning their value is stored
-  // in React state and updated whenever the user types.
+  // Initialized directly with initialData on mount
   // ---------------------------------------------------------------------------
   const [personName, setPersonName] = useState(initialData.personName || '');
   const [dateOfBirth, setDateOfBirth] = useState(formatDateForInput(initialData.dateOfBirth));
@@ -47,25 +46,41 @@ const BirthdayForm = ({
   const [notes, setNotes] = useState(initialData.notes || '');
   const [remindDaysBefore, setRemindDaysBefore] = useState(initialData.remindDaysBefore ?? 1);
   const [photoFile, setPhotoFile] = useState(null); // The actual binary image File object
-  const [previewUrl, setPreviewUrl] = useState(initialData.photoUrl || null); // Temporary URL to show preview
+  const [previewUrl, setPreviewUrl] = useState(null); // Local blob URL to display preview
   const [removePhoto, setRemovePhoto] = useState(false); // Flag to remove photo on edit
   const [validationError, setValidationError] = useState(''); // Client-side error message
 
-  // ---------------------------------------------------------------------------
-  // STEP 2: PREFILL FORM WHEN EDITING
-  // When editing, initialData might arrive a moment later after the API finishes loading.
-  // useEffect watches 'initialData' and fills the input fields as soon as it arrives!
-  // ---------------------------------------------------------------------------
-  useEffect(() => {
-    if (initialData.personName) setPersonName(initialData.personName);
-    if (initialData.dateOfBirth) setDateOfBirth(formatDateForInput(initialData.dateOfBirth));
-    if (initialData.relationship) setRelationship(initialData.relationship);
-    if (initialData.notes !== undefined) setNotes(initialData.notes || '');
-    if (initialData.remindDaysBefore !== undefined) setRemindDaysBefore(initialData.remindDaysBefore);
-    if (initialData.photoUrl) setPreviewUrl(initialData.photoUrl);
-  }, [initialData]);
+  // Today's date in local YYYY-MM-DD
+  const [todayString] = useState(getTodayDateString);
 
-  // Clean up object URLs to prevent browser memory leaks
+  // If editing an existing birthday with a photo, fetch it as a blob so JWT token is sent
+  useEffect(() => {
+    let isMounted = true;
+    let fetchedBlobUrl = null;
+
+    if (initialData.hasPhoto && initialData.photoUrl) {
+      axiosClient
+        .get(initialData.photoUrl, { responseType: 'blob' })
+        .then((response) => {
+          if (isMounted) {
+            fetchedBlobUrl = URL.createObjectURL(response.data);
+            setPreviewUrl(fetchedBlobUrl);
+          }
+        })
+        .catch(() => {
+          // If loading fails, keep preview null
+        });
+    }
+
+    return () => {
+      isMounted = false;
+      if (fetchedBlobUrl) {
+        URL.revokeObjectURL(fetchedBlobUrl);
+      }
+    };
+  }, [initialData.hasPhoto, initialData.photoUrl]);
+
+  // Clean up user-selected file blob preview to prevent browser memory leaks
   useEffect(() => {
     return () => {
       if (previewUrl && previewUrl.startsWith('blob:')) {
@@ -73,9 +88,6 @@ const BirthdayForm = ({
       }
     };
   }, [previewUrl]);
-
-  // Today's date in YYYY-MM-DD (used to disable selecting future birth dates)
-  const todayString = new Date().toISOString().split('T')[0];
 
   // ---------------------------------------------------------------------------
   // STEP 3: HANDLE PHOTO SELECTION & LIVE PREVIEW
@@ -86,10 +98,10 @@ const BirthdayForm = ({
     const selectedFile = event.target.files[0];
     if (!selectedFile) return;
 
-    // Rule 1: File size limit (2 MB = 2 * 1024 * 1024 bytes)
-    const maxSizeBytes = 2 * 1024 * 1024;
+    // Rule 1: File size limit (500 KB = 500 * 1024 bytes)
+    const maxSizeBytes = 500 * 1024;
     if (selectedFile.size > maxSizeBytes) {
-      setValidationError('Photo size must be less than 2 MB.');
+      setValidationError('Photo size must be less than 500 KB. Please choose a smaller photo.');
       event.target.value = '';
       return;
     }
@@ -198,6 +210,7 @@ const BirthdayForm = ({
           type="text"
           className="form-input"
           placeholder="e.g. Priya Sharma"
+          maxLength={100}
           value={personName}
           onChange={(e) => setPersonName(e.target.value)}
           required
@@ -292,7 +305,7 @@ const BirthdayForm = ({
               onChange={handlePhotoChange}
               className="file-input-hidden"
             />
-            <span className="form-help">JPG, PNG, or WebP. Maximum 2 MB.</span>
+            <span className="form-help">JPG, PNG, or WebP. Maximum 500 KB.</span>
           </div>
         </div>
       </div>
@@ -306,6 +319,7 @@ const BirthdayForm = ({
           id="notes"
           className="form-textarea"
           placeholder="e.g. Loves reading sci-fi books, favorite cake is red velvet"
+          maxLength={500}
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           rows="3"

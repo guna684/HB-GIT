@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import axiosClient from '../api/axiosClient';
 
 // =============================================================================
 // HELPER FUNCTIONS
@@ -80,14 +81,40 @@ const formatDate = (dateString) => {
 // - onDelete: A function passed from DashboardPage that opens the delete confirmation
 // =============================================================================
 const BirthdayCard = ({ birthday, onDelete }) => {
-  // We use React state to track if the photo failed to load.
-  // If it fails (broken link or file not found), we smoothly show the initials instead!
-  const [imageFailedToLoad, setImageFailedToLoad] = useState(false);
+  // Local blob URL created from the authenticated /api/birthdays/{id}/photo endpoint
+  const [photoBlobUrl, setPhotoBlobUrl] = useState(null);
 
-  // Reset fallback state if the photo URL updates (e.g. after editing)
+  // Load photo bytes from API using axiosClient (so the JWT Bearer token is attached)
   useEffect(() => {
-    setImageFailedToLoad(false);
-  }, [birthday.photoUrl]);
+    let isMounted = true;
+    let createdUrl = null;
+
+    if (birthday.hasPhoto && birthday.photoUrl) {
+      axiosClient
+        .get(birthday.photoUrl, { responseType: 'blob' })
+        .then((response) => {
+          if (isMounted) {
+            createdUrl = URL.createObjectURL(response.data);
+            setPhotoBlobUrl(createdUrl);
+          }
+        })
+        .catch(() => {
+          if (isMounted) {
+            setPhotoBlobUrl(null);
+          }
+        });
+    } else {
+      setPhotoBlobUrl(null);
+    }
+
+    // Clean up created blob URL when card unmounts or photo changes
+    return () => {
+      isMounted = false;
+      if (createdUrl) {
+        URL.revokeObjectURL(createdUrl);
+      }
+    };
+  }, [birthday.hasPhoto, birthday.photoUrl]);
 
   // ---------------------------------------------------------------------------
   // STEP 1: Calculate countdown text and badge color
@@ -117,12 +144,11 @@ const BirthdayCard = ({ birthday, onDelete }) => {
       
       {/* 1. LEFT COLUMN: Avatar (Photo or Colored Initials) */}
       <div className="card-avatar">
-        {birthday.photoUrl && !imageFailedToLoad ? (
+        {photoBlobUrl ? (
           <img
-            src={birthday.photoUrl}
+            src={photoBlobUrl}
             alt={birthday.personName}
             className="avatar-img"
-            onError={() => setImageFailedToLoad(true)} // If photo fails, switch to initials
           />
         ) : (
           <div

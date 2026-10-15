@@ -33,8 +33,10 @@ public class BirthdayResponse
     // Optional gift ideas, memories, or notes
     public string? Notes { get; set; }
 
-    // Complete URL to access the photo (e.g. http://localhost:5000/uploads/xyz.jpg)
-    // Null if no photo was uploaded
+    // True if a profile photo is saved in PostgreSQL for this person
+    public bool HasPhoto { get; set; }
+
+    // URL to fetch photo from API: /api/birthdays/{id}/photo (null if no photo)
     public string? PhotoUrl { get; set; }
 
     // Number of days until their next birthday (0 = TODAY!)

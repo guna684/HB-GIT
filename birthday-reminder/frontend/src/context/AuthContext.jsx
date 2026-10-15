@@ -110,6 +110,7 @@ export const AuthProvider = ({ children }) => {
  * Usage in any component:
  *   const { user, isAuthenticated, logout } = useAuth();
  */
+// oxlint-disable-next-line react/only-export-components, react-refresh/only-export-components
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {

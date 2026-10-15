@@ -42,29 +42,38 @@ const DashboardPage = () => {
   // STEP 2: LOAD DATA FROM BACKEND ON PAGE LOAD
   // useEffect with an empty array [] runs exactly once when this page first appears on screen.
   // ---------------------------------------------------------------------------
-  const loadDashboardData = async () => {
-    setLoading(true);
-    setError('');
-
-    try {
-      // Promise.all runs both requests at the same time for faster page load!
-      const [allResults, upcomingResults] = await Promise.all([
-        getAllBirthdays(),
-        getUpcomingBirthdays(),
-      ]);
-
-      setAllBirthdays(allResults);
-      setUpcomingBirthdays(upcomingResults);
-    } catch (err) {
-      setError('Failed to load birthdays. Please check your connection.');
-    } finally {
-      // Turn off the spinner whether the request succeeded or failed
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
+    let isMounted = true;
+
+    const loadDashboardData = async () => {
+      try {
+        // Promise.all runs both requests at the same time for faster page load!
+        const [allResults, upcomingResults] = await Promise.all([
+          getAllBirthdays(),
+          getUpcomingBirthdays(),
+        ]);
+
+        if (isMounted) {
+          setAllBirthdays(allResults);
+          setUpcomingBirthdays(upcomingResults);
+          setError('');
+        }
+      } catch {
+        if (isMounted) {
+          setError('Failed to load birthdays. Please check your connection.');
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
     loadDashboardData();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   // ---------------------------------------------------------------------------
@@ -90,7 +99,7 @@ const DashboardPage = () => {
 
       // Close the modal
       setBirthdayToDelete(null);
-    } catch (err) {
+    } catch {
       alert('Failed to delete birthday. Please try again.');
     } finally {
       setIsDeleting(false);

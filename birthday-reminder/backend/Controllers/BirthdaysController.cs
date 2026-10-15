@@ -80,6 +80,26 @@ public class BirthdaysController : ControllerBase
     }
 
     /// <summary>
+    /// GET /api/birthdays/{id}/photo
+    /// Retrieves the binary profile photo from PostgreSQL BYTEA column.
+    /// Only the owner of the birthday record can view the photo.
+    /// </summary>
+    [HttpGet("{id}/photo")]
+    public async Task<IActionResult> GetPhoto(int id)
+    {
+        int userId = GetLoggedInUserId();
+        var photoResult = await _birthdayService.GetPhotoForUserAsync(id, userId);
+
+        if (photoResult == null)
+        {
+            return NotFound(new { message = "Photo not found." });
+        }
+
+        var (photoBytes, contentType) = photoResult.Value;
+        return File(photoBytes, contentType);
+    }
+
+    /// <summary>
     /// POST /api/birthdays
     /// Creates a new birthday reminder.
     /// Uses [FromForm] and [Consumes("multipart/form-data")] to accept an optional photo file upload.

@@ -39,7 +39,7 @@ const EditBirthdayPage = () => {
       try {
         const data = await getBirthdayById(id);
         setBirthday(data);
-      } catch (err) {
+      } catch {
         setFetchError('Could not load this birthday reminder. It may have been deleted.');
       } finally {
         setLoading(false);
@@ -107,6 +107,7 @@ const EditBirthdayPage = () => {
 
       {/* Shared Birthday Form with prefilled initial data */}
       <BirthdayForm
+        key={birthday.id}
         initialData={birthday}
         onSubmit={handleFormSubmit}
         isSubmitting={isSubmitting}

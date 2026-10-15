@@ -31,8 +31,11 @@ public class Birthday
     // Optional notes like gift ideas or favorite hobbies
     public string? Notes { get; set; }
 
-    // Saved filename of their profile picture inside wwwroot/uploads (e.g. "guid.jpg")
-    public string? PhotoFileName { get; set; }
+    // Profile photo binary bytes stored directly in PostgreSQL (BYTEA column)
+    public byte[]? PhotoData { get; set; }
+
+    // Image MIME type (e.g. "image/jpeg", "image/png", "image/webp")
+    public string? PhotoContentType { get; set; }
 
     // How many days in advance to remind the user (0 = day of, 1 = 1 day before, etc.)
     public int RemindDaysBefore { get; set; } = 1;
