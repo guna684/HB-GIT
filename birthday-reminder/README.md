@@ -7,12 +7,14 @@ A full-stack Birthday Reminder web application built with **ASP.NET Core Web API
 ## 🌟 Key Features
 
 - **Authentication & Security**: User registration and login using BCrypt password hashing and JWT (JSON Web Tokens).
+- **Email Notifications**: Automatically sends security alert emails when a user logs in, plus upcoming birthday notifications.
 - **Data Isolation**: Each user can only view, edit, and delete their own birthday records.
 - **Smart Date & Leap Year Calculations**: Automatically calculates days until next birthday and turning age, with correct handling for leap-year babies born on February 29.
 - **Photo Uploads**: Upload profile pictures (.jpg, .jpeg, .png, .webp up to 2 MB) saved to `wwwroot/uploads` with live preview.
-- **Background Reminders**: A hosted `BackgroundService` runs every hour and logs alerts for upcoming birthdays.
+- **Background Reminders**: A hosted `BackgroundService` runs every hour, checks upcoming birthdays, and delivers alerts and emails.
 - **Clean Architecture**: Controller -> Service -> Repository layer pattern with In-Memory storage swappable to PostgreSQL.
 - **Modern Responsive UI**: Mobile-first design with light/dark theme toggle, search, relationship filtering, and delete confirmation modal.
+
 
 ---
 
@@ -68,7 +70,7 @@ birthday-reminder/
 │   ├── DTOs/                 # Request & Response Data Transfer Objects
 │   ├── Models/               # User and Birthday entity models
 │   ├── Repositories/         # Interfaces and In-Memory implementations
-│   ├── Services/             # AuthService, BirthdayService, ReminderBackgroundService
+│   ├── Services/             # AuthService, BirthdayService, EmailService, ReminderBackgroundService
 │   ├── wwwroot/uploads/      # Stored profile photos
 │   ├── appsettings.json      # JWT configuration & settings
 │   └── Program.cs            # Dependency Injection, Middleware, CORS, JWT

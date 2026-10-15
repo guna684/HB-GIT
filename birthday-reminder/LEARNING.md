@@ -269,14 +269,24 @@ We have fully integrated PostgreSQL using **Entity Framework Core** and **Npgsql
 
 ---
 
-## 11. Next Steps for Growth
+## 11. Email Service & Notification System (Now Implemented!)
 
-1. **Email Reminders via SendGrid or MailKit**:
-   - Create an `IEmailService`.
-   - Send email notifications inside `ReminderBackgroundService` when a birthday is coming up.
-2. **Deployment**:
+The application now includes a built-in email notification system via [IEmailService.cs](file:///e:/d/HB/birthday-reminder/backend/Services/IEmailService.cs) and [EmailService.cs](file:///e:/d/HB/birthday-reminder/backend/Services/EmailService.cs):
+
+### Features:
+1. **Login Security Alerts**: Every time a user logs in, [AuthController.cs](file:///e:/d/HB/birthday-reminder/backend/Controllers/AuthController.cs) sends an email notification to the user's registered email address with the login timestamp and security advice.
+2. **Upcoming Birthday Reminders**: In [ReminderBackgroundService.cs](file:///e:/d/HB/birthday-reminder/backend/Services/ReminderBackgroundService.cs), reminder emails are sent to the account owner when a birthday is today or within their reminder window!
+3. **Zero-Setup Console Simulator**: If `EmailSettings` in `appsettings.json` has no SMTP credentials yet, it logs a formatted email simulation directly to the terminal console so beginners can test it immediately without needing an SMTP server.
+4. **Real SMTP Support**: When you add your Gmail/Outlook SMTP username and App Password to `EmailSettings` in `appsettings.json`, it delivers real HTML emails over SSL!
+
+---
+
+## 12. Next Steps for Growth
+
+1. **Deployment**:
    - Deploy backend to Render, Railway, or Azure App Service with PostgreSQL.
    - Deploy frontend to Vercel or Netlify.
-3. **Mobile App or Progressive Web App (PWA)**:
-   - Convert the React app into an installable PWA or build an Android app with React Native / Kotlin!
+2. **Mobile App or Progressive Web App (PWA)**:
+   - Convert the React app into an installable PWA or build an Android/iOS app with React Native!
+
 

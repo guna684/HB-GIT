@@ -325,3 +325,4 @@ E:\d\HB\birthday-reminder\backend\temp_check\ru\Microsoft.CodeAnalysis.Workspace
 E:\d\HB\birthday-reminder\backend\temp_check\tr\Microsoft.CodeAnalysis.Workspaces.resources.dll
 E:\d\HB\birthday-reminder\backend\temp_check\zh-Hans\Microsoft.CodeAnalysis.Workspaces.resources.dll
 E:\d\HB\birthday-reminder\backend\temp_check\zh-Hant\Microsoft.CodeAnalysis.Workspaces.resources.dll
+E:\d\HB\birthday-reminder\backend\bin\Debug\net8.0\temp_check\appsettings.json
