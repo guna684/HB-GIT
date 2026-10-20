@@ -54,6 +54,9 @@ const Navbar = () => {
               <Link to="/" className="nav-link">
                 Dashboard
               </Link>
+              <Link to="/change-password" className="nav-link">
+                Change Password
+              </Link>
               <button
                 type="button"
                 className="btn btn-outline"

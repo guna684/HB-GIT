@@ -6,9 +6,11 @@ import ProtectedRoute from './components/ProtectedRoute';
 
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import DashboardPage from './pages/DashboardPage';
 import AddBirthdayPage from './pages/AddBirthdayPage';
 import EditBirthdayPage from './pages/EditBirthdayPage';
+import ChangePasswordPage from './pages/ChangePasswordPage';
 
 /**
  * =============================================================================
@@ -21,8 +23,8 @@ import EditBirthdayPage from './pages/EditBirthdayPage';
  * 2. <BrowserRouter>: Manages browser URLs and back/forward navigation.
  * 3. <Navbar>: Displayed permanently at the top.
  * 4. <Routes>: Defines all URL paths:
- *    - Public pages: /login, /register (anyone can visit)
- *    - Protected pages: /, /add, /edit/:id (must be logged in)
+ *    - Public pages: /login, /register, /forgot-password (anyone can visit)
+ *    - Protected pages: /, /add, /edit/:id, /change-password (must be logged in)
  *    - Fallback: Any unknown URL redirects to the home page (/).
  */
 function App() {
@@ -39,6 +41,7 @@ function App() {
               {/* 1. Public Routes */}
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
+              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
               {/* 2. Protected Routes (Wrapped in ProtectedRoute guard) */}
               <Route
@@ -46,6 +49,30 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <DashboardPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/add"
+                element={
+                  <ProtectedRoute>
+                    <AddBirthdayPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/edit/:id"
+                element={
+                  <ProtectedRoute>
+                    <EditBirthdayPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/change-password"
+                element={
+                  <ProtectedRoute>
+                    <ChangePasswordPage />
                   </ProtectedRoute>
                 }
               />
