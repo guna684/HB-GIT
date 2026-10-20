@@ -74,5 +74,22 @@ public class InMemoryUserRepository : IUserRepository
             return Task.FromResult(user);
         }
     }
+
+    /// <summary>
+    /// 4. UPDATE PASSWORD
+    /// Updates the password hash in the in-memory user list.
+    /// </summary>
+    public Task UpdatePasswordAsync(int userId, string newPasswordHash)
+    {
+        lock (_lock)
+        {
+            User? user = _users.FirstOrDefault(u => u.Id == userId);
+            if (user != null)
+            {
+                user.PasswordHash = newPasswordHash;
+            }
+            return Task.CompletedTask;
+        }
+    }
 }
 

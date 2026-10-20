@@ -60,5 +60,21 @@ public class PostgresUserRepository : IUserRepository
         await _context.SaveChangesAsync();
         return user;
     }
+
+    /// <summary>
+    /// 4. UPDATE PASSWORD
+    /// Updates the user's password hash in the database.
+    /// SQL equivalent:
+    ///   UPDATE "Users" SET "PasswordHash" = @newPasswordHash WHERE "Id" = @userId;
+    /// </summary>
+    public async Task UpdatePasswordAsync(int userId, string newPasswordHash)
+    {
+        User? user = await _context.Users.FindAsync(userId);
+        if (user != null)
+        {
+            user.PasswordHash = newPasswordHash;
+            await _context.SaveChangesAsync();
+        }
+    }
 }
 

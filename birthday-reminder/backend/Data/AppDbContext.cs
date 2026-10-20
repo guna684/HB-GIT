@@ -31,6 +31,9 @@ public class AppDbContext : DbContext
     // Maps to the "Birthdays" table in PostgreSQL
     public DbSet<Birthday> Birthdays { get; set; } = null!;
 
+    // Maps to the "PasswordResetOtp" table in PostgreSQL
+    public DbSet<PasswordResetOtp> PasswordResetOtps { get; set; } = null!;
+
     // =========================================================================
     // Table Rules & Relationships (OnModelCreating)
     // =========================================================================
@@ -125,6 +128,46 @@ public class AppDbContext : DbContext
 
             // Index on UserId so queries like "get all birthdays for user #5" run super fast
             entity.HasIndex(b => b.UserId);
+        });
+
+        // ---------------------------------------------------------------------
+        // 3. Rules for "PasswordResetOtp" Table
+        // ---------------------------------------------------------------------
+        modelBuilder.Entity<PasswordResetOtp>(entity =>
+        {
+            // Table name in PostgreSQL
+            entity.ToTable("PasswordResetOtp");
+
+            // Primary Key
+            entity.HasKey(o => o.Id);
+
+            // Required BCrypt hash of the OTP
+            entity.Property(o => o.OtpHash)
+                  .IsRequired();
+
+            // Timestamps stored without timezone
+            entity.Property(o => o.ExpiresAt)
+                  .HasColumnType("timestamp without time zone")
+                  .IsRequired();
+
+            entity.Property(o => o.CreatedAt)
+                  .HasColumnType("timestamp without time zone")
+                  .IsRequired();
+
+            entity.Property(o => o.FailedAttempts)
+                  .HasDefaultValue(0);
+
+            entity.Property(o => o.IsUsed)
+                  .HasDefaultValue(false);
+
+            // Foreign Key Relationship with Users table
+            entity.HasOne<User>()
+                  .WithMany()
+                  .HasForeignKey(o => o.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            // Index on UserId for fast lookup of active OTPs
+            entity.HasIndex(o => o.UserId);
         });
     }
 }

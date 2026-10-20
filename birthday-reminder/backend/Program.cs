@@ -72,12 +72,14 @@ if (usePostgres)
     // Scoped: A new repository instance is created for each HTTP request
     builder.Services.AddScoped<IUserRepository, PostgresUserRepository>();
     builder.Services.AddScoped<IBirthdayRepository, PostgresBirthdayRepository>();
+    builder.Services.AddScoped<IPasswordResetOtpRepository, PostgresPasswordResetOtpRepository>();
 }
 else
 {
     // Singleton: A single shared repository instance stays in memory for the life of the server
     builder.Services.AddSingleton<IUserRepository, InMemoryUserRepository>();
     builder.Services.AddSingleton<IBirthdayRepository, InMemoryBirthdayRepository>();
+    builder.Services.AddSingleton<IPasswordResetOtpRepository, InMemoryPasswordResetOtpRepository>();
 }
 
 // =============================================================================
@@ -85,10 +87,12 @@ else
 // AuthService: Manages user registration, BCrypt password hashing, and login.
 // BirthdayService: Calculates leap years, upcoming countdowns, and handles photo saving.
 // EmailService: Sends security login alerts and birthday reminder notifications.
+// OtpRateLimiter: Prevents spam by throttling password reset OTP requests.
 // =============================================================================
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<BirthdayService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddSingleton<OtpRateLimiter>();
 
 
 // =============================================================================

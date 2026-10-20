@@ -28,3 +28,30 @@ export const loginUser = async (credentials) => {
   return response.data;
 };
 
+/**
+ * 3. POST /api/auth/forgot-password
+ * Sends { email } to request a 6-digit OTP code sent via email.
+ */
+export const forgotPassword = async (email) => {
+  const response = await axiosClient.post('/auth/forgot-password', { email });
+  return response.data;
+};
+
+/**
+ * 4. POST /api/auth/reset-password
+ * Sends { email, otp, newPassword } to verify code and set a new password.
+ */
+export const resetPassword = async (payload) => {
+  const response = await axiosClient.post('/auth/reset-password', payload);
+  return response.data;
+};
+
+/**
+ * 5. POST /api/auth/change-password
+ * Sends { currentPassword, newPassword } for a logged-in user.
+ */
+export const changePassword = async (payload) => {
+  const response = await axiosClient.post('/auth/change-password', payload);
+  return response.data;
+};
+

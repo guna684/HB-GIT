@@ -33,6 +33,16 @@ public interface IEmailService
     Task SendBirthdayReminderAlertAsync(string toEmail, string userName, string personName, string relationship, int turningAge, int daysUntil, DateTime dateOfBirth, string? notes);
 
     /// <summary>
+    /// Sends a 6-digit OTP code to a user who requested a password reset.
+    /// </summary>
+    Task SendPasswordResetOtpAsync(string toEmail, string userName, string otp);
+
+    /// <summary>
+    /// Sends a security confirmation email after a user's password has been successfully updated.
+    /// </summary>
+    Task SendPasswordChangedNotificationAsync(string toEmail, string userName);
+
+    /// <summary>
     /// Generic method to send an HTML email with a custom subject and body.
     /// </summary>
     Task SendEmailAsync(string toEmail, string subject, string bodyHtml);

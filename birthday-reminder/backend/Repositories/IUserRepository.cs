@@ -27,5 +27,10 @@ public interface IUserRepository
     /// Saves a new user and returns the created user entity.
     /// </summary>
     Task<User> CreateAsync(User user);
+
+    /// <summary>
+    /// Updates a user's password hash in the database.
+    /// </summary>
+    Task UpdatePasswordAsync(int userId, string newPasswordHash);
 }
 

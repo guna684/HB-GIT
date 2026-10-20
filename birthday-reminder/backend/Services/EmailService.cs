@@ -279,6 +279,119 @@ public class EmailService : IEmailService
     }
 
     /// <summary>
+    /// Sends a 6-digit OTP verification code to a user who requested a password reset.
+    /// </summary>
+    public async Task SendPasswordResetOtpAsync(string toEmail, string userName, string otp)
+    {
+        string subject = "🔐 Your Password Reset Verification Code";
+
+        string bodyHtml = $@"
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset=""utf-8"">
+  <style>
+    body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8fafc; margin: 0; padding: 20px; }}
+    .container {{ max-width: 580px; margin: 0 auto; background-color: #ffffff; border-radius: 14px; padding: 32px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; }}
+    .header {{ text-align: center; margin-bottom: 24px; }}
+    .header h1 {{ color: #6366F1; margin: 8px 0; font-size: 24px; }}
+    .otp-box {{ background-color: #eef2ff; border: 2px dashed #6366f1; border-radius: 12px; padding: 20px; text-align: center; margin: 24px 0; }}
+    .otp-code {{ font-size: 36px; font-weight: 800; letter-spacing: 8px; color: #4338ca; font-family: monospace; }}
+    .notice {{ background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 12px; border-radius: 6px; margin: 16px 0; color: #92400e; font-size: 13px; }}
+    .footer {{ text-align: center; color: #94a3b8; font-size: 12px; margin-top: 24px; border-top: 1px solid #e2e8f0; padding-top: 16px; }}
+  </style>
+</head>
+<body>
+  <div class=""container"">
+    <div class=""header"">
+      <div style=""font-size: 40px;"">🔐</div>
+      <h1>Password Reset Request</h1>
+    </div>
+
+    <p style=""font-size: 16px; color: #0f172a;"">Hi <strong>{userName}</strong>,</p>
+
+    <p style=""color: #475569; font-size: 14px; line-height: 1.6;"">
+      We received a request to reset your password for your Birthday Reminder account. Use the 6-digit verification code below to complete the reset:
+    </p>
+
+    <div class=""otp-box"">
+      <div style=""font-size: 12px; text-transform: uppercase; color: #6366f1; font-weight: 700; margin-bottom: 6px;"">Your Verification Code</div>
+      <div class=""otp-code"">{otp}</div>
+    </div>
+
+    <div class=""notice"">
+      ⏳ <strong>This code expires in 10 minutes</strong> and can only be used once.
+    </div>
+
+    <p style=""color: #64748b; font-size: 13px; line-height: 1.5;"">
+      If you did not request a password reset, you can safely ignore this email. Your current password remains secure.
+    </p>
+
+    <div class=""footer"">
+      <p>Birthday Reminder App &bull; Automated security notification</p>
+    </div>
+  </div>
+</body>
+</html>";
+
+        await SendEmailAsync(toEmail, subject, bodyHtml);
+    }
+
+    /// <summary>
+    /// Sends a security confirmation email after a user's password has been successfully updated.
+    /// </summary>
+    public async Task SendPasswordChangedNotificationAsync(string toEmail, string userName)
+    {
+        string subject = "🔒 Your Password Was Successfully Changed";
+
+        string bodyHtml = $@"
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset=""utf-8"">
+  <style>
+    body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8fafc; margin: 0; padding: 20px; }}
+    .container {{ max-width: 580px; margin: 0 auto; background-color: #ffffff; border-radius: 14px; padding: 32px; border: 1px solid #e2e8f0; }}
+    .header {{ text-align: center; margin-bottom: 24px; }}
+    .header h1 {{ color: #10b981; margin: 8px 0; font-size: 24px; }}
+    .card {{ background-color: #f0fdf4; border: 1px solid #bbf7d0; padding: 16px; border-radius: 8px; margin: 16px 0; }}
+    .warning {{ background-color: #fef2f2; border: 1px solid #fecaca; padding: 14px; border-radius: 8px; margin: 16px 0; color: #991b1b; font-size: 13px; }}
+    .footer {{ text-align: center; color: #94a3b8; font-size: 12px; margin-top: 24px; border-top: 1px solid #e2e8f0; padding-top: 16px; }}
+  </style>
+</head>
+<body>
+  <div class=""container"">
+    <div class=""header"">
+      <div style=""font-size: 40px;"">🔒</div>
+      <h1>Password Changed</h1>
+    </div>
+
+    <p style=""font-size: 16px; color: #0f172a;"">Hi <strong>{userName}</strong>,</p>
+
+    <div class=""card"">
+      <p style=""margin: 0; color: #166534; font-weight: 600;"">
+        Your password has been changed successfully.
+      </p>
+      <p style=""margin: 6px 0 0 0; color: #15803d; font-size: 14px;"">
+        You can now use your new password to sign into your Birthday Reminder account.
+      </p>
+    </div>
+
+    <div class=""warning"">
+      ⚠️ <strong>Didn't make this change?</strong> If you did not change your password, someone may have unauthorized access to your account. Please reset your password immediately or contact support.
+    </div>
+
+    <div class=""footer"">
+      <p>Birthday Reminder App &bull; Automated security notification</p>
+    </div>
+  </div>
+</body>
+</html>";
+
+        await SendEmailAsync(toEmail, subject, bodyHtml);
+    }
+
+    /// <summary>
     /// Sends an email via SMTP or outputs it to the console if SMTP is not configured.
     /// </summary>
     public async Task SendEmailAsync(string toEmail, string subject, string bodyHtml)
@@ -316,17 +429,19 @@ public class EmailService : IEmailService
                 "To:      {ToEmail}\n" +
                 "Subject: {Subject}\n" +
                 "Status:  Sent successfully (Simulated Console Delivery)\n" +
+                "Content Preview:\n{BodyPreview}\n" +
                 "------------------------------------------------------------\n" +
-                "💡 Note for Beginners: To send real emails to your Gmail/Outlook inbox,\n" +
-                "simply configure 'EmailSettings' with your SMTP details in appsettings.json!\n" +
+                "💡 Note for Beginners: To send real emails via Brevo SMTP,\n" +
+                "configure 'EmailSettings' with your SMTP details in appsettings.json!\n" +
                 "============================================================",
                 toEmail,
-                subject
+                subject,
+                bodyHtml
             );
             return;
         }
 
-        // 3. Real SMTP Delivery
+        // 3. Real SMTP Delivery (e.g. Brevo SMTP relay)
         try
         {
             using var mailMessage = new MailMessage
@@ -349,8 +464,8 @@ public class EmailService : IEmailService
         }
         catch (Exception ex)
         {
-            // Log the error but DO NOT throw, so the user can still proceed smoothly!
-            _logger.LogError(ex, "Failed to send email to {ToEmail} via SMTP ({SmtpServer}). Please verify EmailSettings in appsettings.json.", toEmail, smtpServer);
+            // Log the error clearly (without exposing password) and DO NOT throw, so the API & background worker never crash!
+            _logger.LogError(ex, "Failed to send email to {ToEmail} via SMTP ({SmtpServer}:{Port}). Please verify EmailSettings in appsettings.json.", toEmail, smtpServer, port);
         }
     }
 }
